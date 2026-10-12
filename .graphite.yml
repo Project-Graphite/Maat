@@ -8,7 +8,7 @@ projects:
       tags: [javascript, mongodb, redis, react, nodejs, docker]
       owner: omar-mohamed24
       authors: [Omar-Mohamed24]
-      status: in-progress
+      status: wip
       listed: true
       # pinned: true
       showcase:
@@ -32,9 +32,9 @@ projects:
               workers. It hosted a contest for [N] real participants.
           contributions:
               - github: Omar-Mohamed24
-                summary: >
-                    Built the whole platform: the sandboxed judge workers, the queue-based API, the
-                    React frontend with live verdicts, and the CI/CD and Docker Compose deployment.
+                  summary: >
+                      Built the whole platform: the sandboxed judge workers, the queue-based API, the
+                      React frontend with live verdicts, and the CI/CD and Docker Compose deployment.
 
       deploy:
           kind: none
