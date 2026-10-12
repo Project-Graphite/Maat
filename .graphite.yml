@@ -1,36 +1,49 @@
 projects:
-  - slug: project-template # repository name
-    # parent: my-epic # epic slug
-    kind: project # project | epic
-    name: Project template # string, 2-60
-    summary: > # string, 20-240
-      The starting point every project is created from: shared CI wiring, the compose setup and the
-      service convention.
-    tags: [github-actions, docker] # string[], up to 6
-    owner: amrmscll # people handle
-    authors: [AmrMsCLL] # GitHub username[]
-    status: source-only # live | wip | archived | source-only
-    listed: false # true | false
-    pinned: false # true | false
-    # paths: [mods/my-mod] # folder[]
-    # releases: auto # auto | manual
+    - slug: maat
+      kind: project
+      name: Maat
+      summary: >
+          Maat is a distributed online judge that runs untrusted C++ and Python code in locked-down Docker sandboxes, with horizontally scalable workers, live verdicts over WebSockets, and contest leaderboards.
 
-    # showcase:
-    #   problem: string, 20-500
-    #   approach: string, 20-700
-    #   outcome: string, 20-500
-    #   contributions:
-    #     - github: AmrMsCLL # one of authors
-    #       summary: string, 20-300
+      tags: [javascript, mongodb, redis, react, nodejs, docker]
+      owner: omar-mohamed24
+      authors: [Omar-Mohamed24]
+      status: in-progress
+      listed: true
+      # pinned: true
+      showcase:
+          problem: >
+              Practicing for programming contests usually means relying on big public judges, and
+              building your own for a class or a contest is hard because it means safely running
+              untrusted code from strangers. There was no simple self-hostable judge that isolates
+              submissions, handles many at once and shows results live.
+          approach: >
+              A distributed online judge named after the Egyptian goddess of truth and justice. A
+              Node.js and Express API stores submissions in MongoDB and queues them in Redis with BullMQ.
+              Stateless workers pull jobs and compile and run C++ and Python code in
+              throwaway Docker sandboxes with no network, a read-only filesystem, and capped CPU,
+              memory and processes, then classify the verdict against hidden test cases. Results
+              reach a React frontend over WebSockets, and Redis sorted sets power live contest
+              leaderboards. Docker Compose and GitHub Actions CI/CD handle deployment.
+          outcome: >
+              Users submit code and see a verdict (Accepted, Wrong Answer, Time Limit, Memory Limit,
+              Runtime or Compile Error) within seconds, with no page refresh. Capacity scales by
+              adding workers, and a k6 load test measured [X] submissions per minute with [N]
+              workers. It hosted a contest for [N] real participants.
+          contributions:
+              - github: Omar-Mohamed24
+                summary: >
+                    Built the whole platform: the sandboxed judge workers, the queue-based API, the
+                    React frontend with live verdicts, and the CI/CD and Docker Compose deployment.
 
-    deploy:
-      kind: none # none | compose | pages
+      deploy:
+          kind: none
 
-      # kind: compose
-      # host: my-project.project-graphite.com # <label>.project-graphite.com
-      # source: { file: compose.production.yaml, service: web, port: 80 }
-      # secrets: [SECRET_KEY] # UPPER_SNAKE_CASE[]
-
-      # kind: pages
-      # host: my-project.project-graphite.com # <label>.project-graphite.com
-      # source: { directory: web, output: dist }
+      # deploy:
+      #   kind: compose
+      #   host: maat.project-graphite.com
+      #   source:
+      #     file: compose.production.yaml
+      #     service: frontend
+      #     port: 80
+      #   secrets: []
