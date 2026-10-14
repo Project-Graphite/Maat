@@ -1,16 +1,16 @@
 projects:
-    - slug: maat
+    - slug: ma'at
       kind: project
-      name: Maat
+      name: Ma'at
       summary: >
-          Maat is a distributed online judge that runs untrusted C++ and Python code in locked-down Docker sandboxes, with horizontally scalable workers, live verdicts over WebSockets, and contest leaderboards.
+          Ma'at is a distributed online judge that runs untrusted C++ and Python code in locked-down Docker sandboxes, with horizontally scalable workers, live verdicts over WebSockets, and contest leaderboards.
 
       tags: [javascript, mongodb, redis, react, nodejs, docker]
       owner: omar-mohamed24
       authors: [Omar-Mohamed24]
       status: wip
-      listed: true
-      # pinned: true
+      listed: false
+      pinned: false
       showcase:
           problem: >
               Practicing for programming contests usually means relying on big public judges, and
