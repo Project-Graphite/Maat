@@ -29,6 +29,16 @@ const handleTokenExpiredError = (err) => {
 	return new AppError(message, 401);
 };
 
+const handleMulterError = (err) => {
+	const message = `File upload error: ${err.message}`;
+	return new AppError(message, 400);
+};
+
+const handleTooLarge = () => {
+	const message = `Request body is too large.`;
+	return new AppError(message, 413);
+};
+
 const sendDevError = (err, res) => {
 	res.status(err.statusCode).json({
 		status: err.status,

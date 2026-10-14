@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { promisify } from 'util';
-import { filterXSS } from 'xss';
 import User from '../models/userModel.js';
 import catchAsync from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
@@ -30,11 +29,10 @@ const getToken = (req) => {
 };
 
 const resetPasswordEmail = (resetURL) => {
-    const safeURL = filterXSS(resetURL);
     return {
         subject: 'Your password reset link',
         text: `Forgot your password? Reset it here: ${resetURL}\nIf you didn't request this, please ignore this email.`,
-        html: `<p>Forgot your password? <a href="${safeURL}">Reset it here</a>.</p><p>If you didn't request this, please ignore this email.</p>`,
+        html: `<p>Forgot your password? <a href="${resetURL}">Reset it here</a>.</p><p>If you didn't request this, please ignore this email.</p>`,
     };
 };
 
