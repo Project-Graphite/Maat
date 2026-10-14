@@ -13,8 +13,8 @@ process.on('uncaughtException', (err) => {
 	process.exit(1);
 });
 
-dotenv.config({ path: './config.env' });
-const app = require('./app');
+dotenv.config({ path: './.env' });
+const { default: app } = await import('./app.js');
 
 const DB = process.env.DATABASE_LOCAL;
 mongoose

@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { promisify } from 'util';
+import { filterXSS } from 'xss';
 import User from '../models/userModel.js';
 import catchAsync from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
@@ -28,7 +29,16 @@ const getToken = (req) => {
     return undefined;
 };
 
-const sendJWT = (user, res, statusCode = 200) => {
+const resetPasswordEmail = (resetURL) => {
+    const safeURL = filterXSS(resetURL);
+    return {
+        subject: 'Your password reset link',
+        text: `Forgot your password? Reset it here: ${resetURL}\nIf you didn't request this, please ignore this email.`,
+        html: `<p>Forgot your password? <a href="${safeURL}">Reset it here</a>.</p><p>If you didn't request this, please ignore this email.</p>`,
+    };
+};
+
+const sendJWT =(user, res, statusCode = 200) => {
     user.password = undefined;
     const token = signToken(user._id);
 
@@ -39,20 +49,19 @@ const sendJWT = (user, res, statusCode = 200) => {
     res.status(statusCode).json({ status: 'success', data: { user } });
 };
 
-signup = catchAsync(async (req, res, next) => {
+const signup = catchAsync(async (req, res, next) => {
     const newUser = await User.create({
         name: req.body.name,
         email: req.body.email,
         password: req.body.password,
         passwordConfirm: req.body.passwordConfirm,
         photo: req.body.photo,
-        role: req.body.role,
     });
 
     sendJWT(newUser, res, 201);
 });
 
-login = catchAsync(async (req, res, next) => {
+const login = catchAsync(async (req, res, next) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -67,12 +76,13 @@ login = catchAsync(async (req, res, next) => {
     sendJWT(user, res);
 });
 
-logout = (req, res) => {
+const logout = catchAsync(async (req, res) => {
+    if (req.user) await User.updateOne({ _id: req.user._id }, { passwordChangedAt: new Date() });
     res.clearCookie('jwt', cookieOptions());
     res.status(200).json({ status: 'success' });
-};
+});
 
-protect = catchAsync(async (req, res, next) => {
+const protect = catchAsync(async (req, res, next) => {
     const token = getToken(req);
     if (!token) {
         return next(new AppError('You are not logged in! Please log in to get access.', 401));
@@ -91,7 +101,25 @@ protect = catchAsync(async (req, res, next) => {
     next();
 });
 
-restrictTo = (...roles) => {
+const identify = catchAsync(async (req, res, next) => {
+    const token = getToken(req);
+    if (!token) return next();
+
+    let decoded;
+    try {
+        decoded = await verifyToken(token);
+    } catch {
+        return next();
+    }
+
+    const currentUser = await User.findById(decoded.id);
+    if (currentUser && !currentUser.changedPasswordAfter(decoded.iat)) {
+        req.user = currentUser;
+    }
+    next();
+});
+
+const restrictTo = (...roles) => {
     return (req, res, next) => {
         if (!req.user || !roles.includes(req.user.role)) {
             return next(
@@ -105,7 +133,7 @@ restrictTo = (...roles) => {
     };
 };
 
-forgotPassword = catchAsync(async (req, res, next) => {
+const forgotPassword = catchAsync(async (req, res, next) => {
     if (typeof req.body.email !== 'string') {
         return next(new AppError('Please provide your email address.', 400));
     }
@@ -138,7 +166,7 @@ forgotPassword = catchAsync(async (req, res, next) => {
     response();
 });
 
-resetPassword = catchAsync(async (req, res, next) => {
+const resetPassword = catchAsync(async (req, res, next) => {
     const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
 
     const user = await User.findOne({
@@ -159,7 +187,7 @@ resetPassword = catchAsync(async (req, res, next) => {
     sendJWT(user, res);
 });
 
-updatePassword = catchAsync(async (req, res, next) => {
+const updatePassword = catchAsync(async (req, res, next) => {
     const user = await User.findById(req.user.id).select('+password');
 
     if (
@@ -181,6 +209,7 @@ export {
     login,
     logout,
     protect,
+    identify,
     restrictTo,
     forgotPassword,
     resetPassword,
