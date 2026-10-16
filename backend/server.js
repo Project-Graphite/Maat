@@ -14,7 +14,8 @@ process.on('uncaughtException', (err) => {
 });
 
 dotenv.config({ path: './.env' });
-const { default: app } = await import('./app.js');
+import app from './app.js';
+import storage from './utils/storage.js';
 
 const DB = process.env.DATABASE_LOCAL;
 mongoose
@@ -25,6 +26,11 @@ mongoose
 	.catch((err) => {
 		console.log('DB connection error:', err);
 	});
+
+storage
+    .checkConnection()
+    .then(() => console.log('File storage connection successful!'))
+    .catch((err) => console.log('File storage connection error:', err.name, err.message));
 
 const port = process.env.PORT || 5000;
 const server = app.listen(port, () => {
