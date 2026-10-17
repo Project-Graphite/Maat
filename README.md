@@ -1,58 +1,97 @@
-# Project name
+# Ma'at
 
-One sentence on what this is and who it is for.
+Ma'at is a distributed online judge. You write a solution in C++ or Python, submit it, and a few seconds later you see whether it was right. It is named after the Egyptian goddess of truth and justice, which seemed fitting for a system whose whole job is to deliver a fair verdict.
 
-## Stack
+The hard part of a judge is running code written by strangers without trusting it. Every submission here runs in its own throwaway Docker container with no network, a read-only filesystem and strict limits on CPU, memory and processes. The container is destroyed as soon as the run ends.
 
-What it is built with, and anything unusual about how it fits together.
+## What it does
 
-## Running it
+- Browse problems, read the statement and write a solution in an in-browser editor
+- Submit C++17 or Python 3 code and watch the verdict arrive live, test by test, without refreshing
+- Get one of seven outcomes: Accepted, Wrong Answer, Time Limit Exceeded, Memory Limit Exceeded, Runtime Error, Compile Error, or Pending while it waits its turn
+- Join timed contests with ICPC-style scoring and a leaderboard that updates as submissions are judged
+- Upload a profile picture, which is re-encoded before it is stored
+- Manage problems and hidden test cases from an admin area
 
-```sh
-docker compose up
+## How it works
+
+```
+                 ┌──────────┐   HTTP / WebSocket   ┌───────────┐
+                 │ Frontend │ ◄──────────────────► │  Backend  │
+                 └──────────┘                      │ (Express) │
+                                                   └─────┬─────┘
+                                      saves submission   │   enqueues job
+                                  ┌──────────────────────┼──────────────┐
+                                  ▼                      ▼              ▼
+                            ┌──────────┐           ┌──────────┐   ┌──────────┐
+                            │ MongoDB  │           │  Redis   │   │  MinIO   │
+                            └────▲─────┘           │ queue +  │   │ profile  │
+                                 │                 │ pub/sub  │   │ pictures │
+                                 │ verdicts        └────┬─────┘   └──────────┘
+                            ┌────┴─────┐  pulls jobs    │
+                            │ Workers  │ ◄──────────────┘
+                            └────┬─────┘
+                                 │ docker run, one per test
+                                 ▼
+                          ┌─────────────┐
+                          │   Sandbox   │
+                          └─────────────┘
 ```
 
-Then open http://localhost:8080.
+1. The backend validates the submission, saves it as `PENDING` and puts a job on a BullMQ queue. It answers right away with `202 Accepted`.
+2. A worker takes the job, compiles the code if needed, then runs it against each test case in a fresh sandbox container.
+3. The worker compares the output with the expected answer, saves the verdict to MongoDB and publishes it on a Redis channel.
+4. The backend receives that message and pushes it to the browser over Socket.IO. If the socket drops, the frontend falls back to polling.
 
-## Layout
+Because workers are stateless and only talk to the queue, more capacity is just more workers. Judging is CPU-bound, so throughput climbs with each worker until the host runs out of cores. [load-tests](load-tests) shows where that happens.
+
+## Tech stack
+
+| Part | Choice |
+| :--- | :--- |
+| Frontend | React, Vite, Tailwind, Monaco editor |
+| API | Node.js, Express, Mongoose |
+| Database | MongoDB |
+| Queue and leaderboard | Redis, BullMQ, sorted sets |
+| Live updates | Socket.IO |
+| File storage | MinIO (S3 compatible) |
+| Sandbox | Docker |
+| Load testing | k6 |
+| CI/CD | GitHub Actions, Docker Compose |
+
+## Repository layout
 
 | Folder | What it is |
 | :--- | :--- |
-| `web/` | Replace with the real services |
+| [frontend](frontend) | The React app |
+| [backend](backend) | The REST API and the Socket.IO server |
+| [worker](worker) | The judge: pulls jobs and runs code in sandboxes |
+| [load-tests](load-tests) | k6 scripts and the recorded benchmarks |
+| [infra](infra) | Setup scripts for supporting services such as MinIO |
 
-## Setting up
+## Running it locally
 
-Delete this section once the checklist is done.
+You need Node.js 20 or newer and Docker.
 
-1. Replace the registry entry in `.graphite.yml`, which is the template's own. Set `slug` to the
-   lowercase repository name and update `name`, `summary`, `tags`, `owner`, `authors`, `status`,
-   `listed`, and `deploy`. Pushing it to `main` registers the project through the Registry workflow.
-2. Rename the placeholder service. Every top-level folder containing a `Dockerfile` is a deployable
-   service and is built and pushed automatically. Point the docker entry's `directory` in
-   `.github/dependabot.yml` at each service folder, one entry per service.
-3. Give each service its checks. A folder with a `package.json` gets `npm ci` followed by available
-   `lint`, `test`, and `build` scripts. A folder with a `Makefile` must provide `install`, `lint`, and
-   `test` targets.
-4. Update `compose.yaml` for local development, with its bind mounts, hot reload, and development
-   ports. Update `compose.production.yaml` to pull the prebuilt GHCR images,
-   define health checks and persistent volumes, avoid published host ports, and cap CPU and memory.
-5. Add a screenshot or short GIF, the eventual live link, the stack, and clear local instructions
-   to this README.
+1. Copy `.env.example` to `.env` and fill in the values. Do the same in `backend/` if you run the API on its own.
+2. Start MongoDB, Redis and MinIO with Docker Compose.
+3. In `backend/`, run `npm install` and then `npm start`.
+4. In `worker/`, run `npm install` and then `npm start`. The worker needs access to the Docker daemon.
+5. In `frontend/`, run `npm install` and then `npm run dev`.
 
-Use named service folders even for a single-service project. Images are published as
-`ghcr.io/project-graphite/<repo>/<service>`, and each image name must match its service in the
-production Compose file.
+Each folder has its own README with the details.
 
-`.github/workflows/pipeline.yml` runs the shared `reusable-pipeline.yml`. Turn a stage off with its
-switch, e.g. `with: { changelog: false }`, or replace the file with calls to the individual shared
-workflows.
+## Security
 
-Until the platform entry is merged, the `Deploy` job on `main` fails with a clear message. Builds
-and checks continue. Once the repository has the `COOLIFY_WEBHOOK` and `COOLIFY_TOKEN` secrets, the
-same job deploys to Coolify.
+Running other people's code is the main risk, so the design assumes every submission is hostile.
 
-## Conventions
+- Sandboxes run with no network, a read-only root filesystem, all Linux capabilities dropped, no privilege escalation, and limits on memory, CPU, process count and output size
+- Commands are started with argument arrays rather than shell strings, so nothing in a submission can inject a command
+- Hidden test data is never returned by any public route, only the sample cases
+- Users can only read their own submissions, and sockets can only join the room of a submission they own
+- Uploaded images are decoded and rebuilt from raw pixels, so metadata and hidden payloads do not survive
+- Requests are sanitized against NoSQL and XSS injection, rate limited, and checked against the allowed frontend origin
 
-Pull request titles follow `type(scope): summary` using one of `feat fix chore refactor docs test ci
-perf revert style build`. Squash merges put the title into the history of `main`, so the title
-matters more than the branch name.
+## License
+
+Released under the terms of the [LICENSE](LICENSE) file.
