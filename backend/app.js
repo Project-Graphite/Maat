@@ -10,7 +10,15 @@ import { filterXSS } from 'xss';
 import AppError from './utils/appError.js';
 import errorController from './controllers/errorController.js';
 
-const XSS_SKIP_FIELDS = new Set(['password', 'passwordConfirm', 'passwordCurrent']);
+const XSS_SKIP_FIELDS = new Set([
+    'password',
+    'passwordConfirm',
+    'passwordCurrent',
+    'sourceCode',
+    'statementMd',
+    'input',
+    'expectedOutput',
+]);
 
 const sanitize = (value) => {
     if (typeof value === 'string') return filterXSS(value);
@@ -45,7 +53,22 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 // Body parser, reading data from body into req.body
-app.use(express.json({ limit: '10kb' }));
+// Everything gets 10kb, except the routes that carry code or test data
+const defaultJson = express.json({ limit: '10kb' });
+const jsonByRoute = [
+    [/^\/api\/v1\/submissions\/?$/, express.json({ limit: '100kb' })],
+    [/^\/api\/v1\/problems(\/[a-f0-9]{24})?\/?$/i, express.json({ limit: '200kb' })],
+    [
+        /^\/api\/v1\/problems\/[a-f0-9]{24}\/testcases(\/[a-f0-9]{24})?\/?$/i,
+        express.json({ limit: '10mb' }),
+    ],
+];
+
+app.use((req, res, next) => {
+    const route = jsonByRoute.find(([pattern]) => pattern.test(req.path));
+    (route ? route[1] : defaultJson)(req, res, next);
+});
+
 app.use(cookieParser());
 
 // Data sanitization against NoSQL query injection

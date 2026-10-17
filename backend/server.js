@@ -1,5 +1,5 @@
+import 'dotenv/config';
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 
 process.on('unhandledRejection', (err) => {
 	console.log('UNHANDLED REJECTION! Shutting down...');
@@ -13,9 +13,8 @@ process.on('uncaughtException', (err) => {
 	process.exit(1);
 });
 
-dotenv.config({ path: './.env' });
 import app from './app.js';
-import storage from './utils/storage.js';
+import * as storage from './utils/storage.js';
 
 const DB = process.env.DATABASE_LOCAL;
 mongoose
