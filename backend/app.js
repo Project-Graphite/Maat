@@ -9,6 +9,13 @@ import cookieParser from 'cookie-parser';
 import { filterXSS } from 'xss';
 import AppError from './utils/appError.js';
 import errorController from './controllers/errorController.js';
+import sameOrigin from './utils/sameOrigin.js';
+import authRouter from './routes/authRoutes.js';
+import userRouter from './routes/userRoutes.js';
+import problemRouter from './routes/problemRoutes.js';
+import adminProblemRouter from './routes/adminProblemRoutes.js';
+import submissionRouter from './routes/submissionRoutes.js';
+import contestRouter from './routes/contestRoutes.js';
 
 const XSS_SKIP_FIELDS = new Set([
     'password',
@@ -52,19 +59,16 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-// Body parser, reading data from body into req.body
-// Everything gets 10kb, except the routes that carry code or test data
 const defaultJson = express.json({ limit: '10kb' });
 const jsonByRoute = [
     [/^\/api\/v1\/submissions\/?$/, express.json({ limit: '100kb' })],
-    [/^\/api\/v1\/problems(\/[a-f0-9]{24})?\/?$/i, express.json({ limit: '200kb' })],
-    [
-        /^\/api\/v1\/problems\/[a-f0-9]{24}\/testcases(\/[a-f0-9]{24})?\/?$/i,
-        express.json({ limit: '10mb' }),
-    ],
+    [/^\/api\/v1\/admin\/problems(\/[a-f0-9]{24})?\/?$/i, express.json({ limit: '200kb' })],
 ];
 
+const TEST_CASE_ROUTE = /^\/api\/v1\/admin\/problems\/[a-f0-9]{24}\/testcases(\/|$)/i;
+
 app.use((req, res, next) => {
+    if (TEST_CASE_ROUTE.test(req.path)) return next();
     const route = jsonByRoute.find(([pattern]) => pattern.test(req.path));
     (route ? route[1] : defaultJson)(req, res, next);
 });
@@ -84,6 +88,13 @@ app.use((req, res, next) => {
 app.use(express.static(`${path.dirname(fileURLToPath(import.meta.url))}/public`));
 
 // Mounting routers
+app.use('/api', sameOrigin);
+app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/users', userRouter);
+app.use('/api/v1/problems', problemRouter);
+app.use('/api/v1/admin/problems', adminProblemRouter);
+app.use('/api/v1/submissions', submissionRouter);
+app.use('/api/v1/contests', contestRouter);
 
 // Handle unhandled routes
 app.all('*', (req, res, next) => {
