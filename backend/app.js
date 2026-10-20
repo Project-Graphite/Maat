@@ -44,6 +44,7 @@ const sanitize = (value) => {
 };
 
 const app = express();
+app.set('trust proxy', 1);
 /////////////// 1) MIDDLEWARES /////////////////////////
 // Set security HTTP headers
 app.use(helmet());
