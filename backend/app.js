@@ -1,6 +1,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
+import mongoose from 'mongoose';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
@@ -10,6 +11,7 @@ import { filterXSS } from 'xss';
 import AppError from './utils/appError.js';
 import errorController from './controllers/errorController.js';
 import sameOrigin from './utils/sameOrigin.js';
+import { redis } from './services/redis.js';
 import authRouter from './routes/authRoutes.js';
 import userRouter from './routes/userRoutes.js';
 import problemRouter from './routes/problemRoutes.js';
@@ -45,6 +47,16 @@ const app = express();
 /////////////// 1) MIDDLEWARES /////////////////////////
 // Set security HTTP headers
 app.use(helmet());
+
+app.get('/health', (req, res) => {
+    const mongo = mongoose.connection.readyState === 1;
+    const redisUp = redis.status === 'ready';
+    res.status(mongo && redisUp ? 200 : 503).json({
+        status: mongo && redisUp ? 'ok' : 'degraded',
+        mongo: mongo ? 'up' : 'down',
+        redis: redisUp ? 'up' : 'down',
+    });
+});
 
 // Development logging
 if (process.env.NODE_ENV === 'development') {

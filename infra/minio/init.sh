@@ -29,7 +29,7 @@ cat > /tmp/policy.json <<POLICY
 POLICY
 
 mc admin user add local "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
-mc admin policy create local pixelpocket-app /tmp/policy.json
-mc admin policy attach local pixelpocket-app --user "$S3_ACCESS_KEY" 2>/dev/null || true
+mc admin policy create local maat-app /tmp/policy.json
+mc admin policy attach local maat-app --user "$S3_ACCESS_KEY" 2>/dev/null || true
 
 echo "MinIO is ready: bucket '$S3_BUCKET', app user '$S3_ACCESS_KEY'."
