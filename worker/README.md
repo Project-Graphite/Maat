@@ -91,7 +91,7 @@ When the worker itself runs in a container, mount the Docker socket and mount th
 ```
 worker/
 ├── src/
-│   ├── index.js     Starts the BullMQ worker
+│   ├── server.js     Starts the BullMQ worker
 │   ├── judge.js     Handles one submission from start to finish
 │   ├── sandbox.js   Wraps docker run, timeouts and cleanup
 │   ├── verdict.js   Output comparison and classification

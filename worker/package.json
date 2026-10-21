@@ -1,0 +1,28 @@
+{
+  "name": "maat-worker",
+  "version": "1.0.0",
+  "description": "Ma'at worker",
+  "main": "src/server.js",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "nodemon src/server.js",
+    "start:prod": "cross-env NODE_ENV=production nodemon src/server.js",
+    "debug": "ndb src/server.js",
+    "lint": "prettier --check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "bullmq": "^6.3.16",
+    "dotenv": "^17.2.2",
+    "ioredis": "^6.0.0",
+    "mongoose": "^8.24.6"
+  },
+  "devDependencies": {
+    "cross-env": "^10.0.0",
+    "ndb": "^1.1.5",
+    "nodemon": "^2.0.22",
+    "prettier": "^3.6.2",
+    "vitest": "^5.0.5"
+  }
+}
