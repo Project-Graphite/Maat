@@ -108,6 +108,20 @@ services:
     depends_on:
       - backend
 
+  sandbox-cpp:
+    build:
+      context: ./worker/sandbox-images
+      dockerfile: cpp.Dockerfile
+    image: maat-cpp
+    profiles: ["build"]
+
+  sandbox-python:
+    build:
+      context: ./worker/sandbox-images
+      dockerfile: python.Dockerfile
+    image: maat-python
+    profiles: ["build"]
+
 volumes:
   mongo-data:
   redis-data:

@@ -10,7 +10,9 @@
     "start:prod": "cross-env NODE_ENV=production nodemon src/server.js",
     "debug": "ndb src/server.js",
     "lint": "prettier --check .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "ad": "vitest run tests/adversarial",
+    "unit": "vitest run tests/unit"
   },
   "dependencies": {
     "bullmq": "^6.3.16",
