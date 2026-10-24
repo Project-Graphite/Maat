@@ -90,10 +90,10 @@ services:
     environment:
       DATABASE_LOCAL: mongodb://maat:${MONGO_PASSWORD}@mongo:27017/maat?authSource=admin
       REDIS_URL: redis://redis:6379
-      JOBS_DIR: /tmp/maat-jobs
+      JOBS_DIR: /opt/maat-jobs
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /tmp/maat-jobs:/tmp/maat-jobs
+      - /opt/maat-jobs:/opt/maat-jobs
     depends_on:
       mongo:
         condition: service_healthy

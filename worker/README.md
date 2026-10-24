@@ -75,7 +75,7 @@ docker build -f sandbox-images/cpp.Dockerfile -t maat-cpp sandbox-images
 docker build -f sandbox-images/python.Dockerfile -t maat-python sandbox-images
 ```
 
-When the worker itself runs in a container, mount the Docker socket and mount the job directory at the same path inside and outside, for example `/tmp/maat-jobs:/tmp/maat-jobs`. Volume paths in `docker run` are resolved by the host, so the two paths have to agree.
+When the worker itself runs in a container, mount the Docker socket and mount the job directory at the same path inside and outside, for example `/opt/maat-jobs:/opt/maat-jobs`. Volume paths in `docker run` are resolved by the host, so the two paths have to agree.
 
 ## Configuration
 
@@ -83,7 +83,7 @@ When the worker itself runs in a container, mount the Docker socket and mount th
 | :--- | :--- |
 | `DATABASE_LOCAL`, `MONGO_PASSWORD` | MongoDB connection |
 | `REDIS_URL` | Redis connection used by the queue and for publishing verdicts |
-| `JOBS_DIR` | Where job directories are created, `/tmp/maat-jobs` by default |
+| `JOBS_DIR` | Where job directories are created, `/opt/maat-jobs` by default |
 | `WORKER_CONCURRENCY` | How many submissions this worker judges at once, 2 by default |
 
 ## Folder layout
