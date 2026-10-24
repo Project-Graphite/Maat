@@ -15,6 +15,7 @@ process.on('uncaughtException', (err) => {
 
 import app from './app.js';
 import * as storage from './utils/storage.js';
+import { initSockets } from './sockets/index.js';
 
 const DB = process.env.DATABASE_LOCAL;
 mongoose
@@ -35,3 +36,5 @@ const port = process.env.PORT || 5000;
 const server = app.listen(port, () => {
 	console.log(`Server is running on http://localhost:${port}`);
 });
+
+initSockets(server);

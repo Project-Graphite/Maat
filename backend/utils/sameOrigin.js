@@ -6,7 +6,7 @@ const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
 
 // Origins come from FRONTEND_URL (comma-separated for several), never from request headers,
 // so a proxy header can't be faked to get past the check
-const allowedOrigins = new Set(
+export const allowedOrigins = new Set(
     (process.env.FRONTEND_URL || '')
         .split(',')
         .map((url) => url.trim())

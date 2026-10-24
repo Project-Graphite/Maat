@@ -103,6 +103,7 @@ export const judgeSubmission = async (submissionId) => {
 			contestId: submission.contestId,
 			problemId: submission.problemId,
 			status: outcome.status,
+			compileOutput: outcome.compileOutput,
 			tests: outcome.tests,
 			judgedAt,
 		}),
