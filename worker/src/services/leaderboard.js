@@ -32,7 +32,7 @@ redis.defineCommand('applyVerdict', {
     `,
 });
 
-const IGNORED = new Set(['PENDING', 'RUNNING', 'COMPILE_ERROR']);
+const IGNORED = new Set(['PENDING', 'RUNNING', 'COMPILE_ERROR', 'SYSTEM_ERROR']);
 
 /**
  * Records one judged contest submission. Only the first ACCEPTED per problem counts, and

@@ -9,6 +9,7 @@ const STATUSES = [
     'MLE',
     'RUNTIME_ERROR',
     'COMPILE_ERROR',
+    'SYSTEM_ERROR',
 ];
 
 const testResultSchema = new mongoose.Schema(

@@ -10,7 +10,7 @@ import { redis } from './services/redis.js';
 import { classify } from './verdict.js';
 
 const JOBS_DIR = process.env.JOBS_DIR || '/opt/maat-jobs';
-const FINAL = new Set(['ACCEPTED', 'WRONG_ANSWER', 'TLE', 'MLE', 'RUNTIME_ERROR', 'COMPILE_ERROR']);
+const FINAL = new Set(['ACCEPTED', 'WRONG_ANSWER', 'TLE', 'MLE', 'RUNTIME_ERROR', 'COMPILE_ERROR', 'SYSTEM_ERROR']);
 export const VERDICT_CHANNEL = 'verdicts';
 
 const runTests = async (submission, problem, testCases, jobDir) => {
@@ -41,6 +41,21 @@ const runTests = async (submission, problem, testCases, jobDir) => {
 	}
 	return { status, tests };
 };
+
+const publishVerdict = (submission, { status, compileOutput, tests, judgedAt }) =>
+	redis.publish(
+		VERDICT_CHANNEL,
+		JSON.stringify({
+			submissionId: submission.id,
+			userId: submission.userId,
+			contestId: submission.contestId,
+			problemId: submission.problemId,
+			status,
+			compileOutput,
+			tests,
+			judgedAt,
+		}),
+	);
 
 export const judgeSubmission = async (submissionId) => {
 	const submission = await Submission.findById(submissionId);
@@ -95,17 +110,22 @@ export const judgeSubmission = async (submissionId) => {
 		}
 	}
 
-	await redis.publish(
-		VERDICT_CHANNEL,
-		JSON.stringify({
-			submissionId: submission.id,
-			userId: submission.userId,
-			contestId: submission.contestId,
-			problemId: submission.problemId,
-			status: outcome.status,
-			compileOutput: outcome.compileOutput,
-			tests: outcome.tests,
-			judgedAt,
-		}),
+	await publishVerdict(submission, { ...outcome, judgedAt });
+};
+
+/**
+ * Called when judging has failed for good (every retry used, or the job stalled out). Without
+ * this the submission would stay RUNNING forever. It scores nothing in a contest, since the
+ * failure is ours and not the contestant's.
+ */
+export const failSubmission = async (submissionId) => {
+	const submission = await Submission.findById(submissionId);
+	if (!submission || FINAL.has(submission.status)) return;
+
+	const outcome = { status: 'SYSTEM_ERROR', tests: [], judgedAt: new Date() };
+	await Submission.updateOne(
+		{ _id: submission._id },
+		{ status: outcome.status, tests: outcome.tests, judgedAt: outcome.judgedAt },
 	);
+	await publishVerdict(submission, outcome);
 };

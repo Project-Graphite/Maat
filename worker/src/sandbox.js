@@ -59,6 +59,39 @@ const wasOomKilled = async (name) => {
 const removeContainer = (name) =>
 	execFileAsync('docker', ['rm', '-f', name]).catch(() => {});
 
+const STALE_AFTER_MS = 2 * 60 * 1000;
+
+export const removeStaleSandboxes = async () => {
+	const { stdout } = await execFileAsync('docker', [
+		'ps',
+		'-a',
+		'--filter',
+		'name=^maat-[0-9a-f]{16}$',
+		'--format',
+		'{{.ID}}',
+	]);
+
+	let removed = 0;
+	for (const id of stdout.split('\n').filter(Boolean)) {
+		try {
+			const { stdout: info } = await execFileAsync('docker', [
+				'inspect',
+				'-f',
+				'{{.State.Running}} {{.Created}}',
+				id,
+			]);
+			const [running, created] = info.trim().split(' ');
+			const stale = running !== 'true' || Date.now() - Date.parse(created) > STALE_AFTER_MS;
+			if (stale) {
+				await removeContainer(id);
+				removed++;
+			}
+		} catch {
+		}
+	}
+	return removed;
+};
+
 const execute = (
 	name,
 	{ image, command, workDir, writable, stdin, timeoutMs, memoryMb, tmpfsMb },

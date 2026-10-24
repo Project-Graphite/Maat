@@ -9,7 +9,7 @@ import isObjectId from '../utils/isObjectId.js';
 import AppError from '../utils/appError.js';
 
 const VERDICT_CHANNEL = 'verdicts';
-const FINAL_STATUSES = ['ACCEPTED', 'WRONG_ANSWER', 'TLE', 'MLE', 'RUNTIME_ERROR', 'COMPILE_ERROR'];
+const FINAL_STATUSES = ['ACCEPTED', 'WRONG_ANSWER', 'TLE', 'MLE', 'RUNTIME_ERROR', 'COMPILE_ERROR', 'SYSTEM_ERROR'];
 const MAX_ROOMS_PER_SOCKET = 50;
 
 const submissionRoom = (id) => `submission:${id}`;
