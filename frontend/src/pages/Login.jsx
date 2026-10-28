@@ -35,7 +35,7 @@ export default function Login() {
       <Seo title="Log in" description="Log in to Ma’at to submit solutions and join contests." path="/login" noindex />
       <div className="auth-panel inscribed">
         <h1>Log in</h1>
-        <p className="muted">Welcome back. Your drafts are where you left them.</p>
+        <p className="muted">Welcome back.</p>
         <form className="form" onSubmit={submit}>
           {error && (
             <div className="notice notice-error" role="alert">

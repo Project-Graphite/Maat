@@ -57,7 +57,6 @@ const getAvatar = catchAsync(async (req, res, next) => {
 	await sendAvatar(user.photo, res);
 });
 
-// Admin only
 const getAllUsers = catchAsync(async (req, res) => {
 	const features = new APIFeatures(
 		User.find().select('name email role photo'),
@@ -88,7 +87,6 @@ const getAllUsers = catchAsync(async (req, res) => {
 	});
 });
 
-// Admin only
 const updateUserRole = catchAsync(async (req, res, next) => {
 	if (!ROLES.includes(req.body.role)) {
 		return next(

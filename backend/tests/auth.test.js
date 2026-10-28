@@ -82,7 +82,7 @@ describe('login', () => {
 			.post(`${auth}/login`)
 			.send({ email: 'nobody@test.com', password: PASSWORD });
 		expect(res.status).toBe(401);
-		expect(res.body.message).toBe('Incorrect email or password');
+		expect(res.body.message).toBe('Incorrect email or password.');
 	});
 
 	it('requires both fields', async () => {
@@ -177,5 +177,19 @@ describe('password change', () => {
 			passwordConfirm: newPassword,
 		});
 		expect(res.status).toBe(401);
+	});
+});
+
+describe('error messages', () => {
+	it('names a taken email plainly', async () => {
+		const body = signupBody();
+		await request(app).post('/api/v1/auth/signup').send(body);
+		const res = await request(app).post('/api/v1/auth/signup').send({ ...body, name: 'Someone Else' });
+		expect(res.body.message).toBe('An account with this email already exists.');
+	});
+
+	it('explains a short password', async () => {
+		const res = await request(app).post('/api/v1/auth/signup').send(signupBody({ password: 'short', passwordConfirm: 'short' }));
+		expect(res.body.message).toBe('Your password must be at least 8 characters.');
 	});
 });

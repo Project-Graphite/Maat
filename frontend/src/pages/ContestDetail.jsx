@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Seo from '../components/Seo.jsx'
 import { EmptyState, ErrorState, Loading } from '../components/States.jsx'
-import { Difficulty } from '../components/VerdictBadge.jsx'
+import { Difficulty, ProblemStatus } from '../components/VerdictBadge.jsx'
 import { useAuth } from '../context/Auth.jsx'
 import { api } from '../lib/api.js'
 import { countdown, formatDateTime } from '../lib/format.js'
@@ -39,7 +39,6 @@ function Standings({ contest }) {
         socket.emit('contest:unwatch', id)
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, running, user?._id])
 
   if (loading && !data) return <Loading label="Loading standings" />
@@ -106,7 +105,8 @@ function Standings({ contest }) {
 
 export default function ContestDetail() {
   const { id } = useParams()
-  const { data, error, loading, reload } = useAsync((signal) => api(`/contests/${id}`, { signal }), [id])
+  const { user } = useAuth()
+  const { data, error, loading, reload } = useAsync((signal) => api(`/contests/${id}`, { signal }), [id, user?._id])
   const now = useNow()
 
   // Problems are hidden until the start. Fetch again the moment the contest begins
@@ -115,7 +115,6 @@ export default function ContestDetail() {
   const hidden = loaded && loaded.problems.length === 0
   useEffect(() => {
     if (started && hidden) reload()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, hidden])
 
   if (loading && !data) return <div className="page"><Loading label="Loading the contest" /></div>
@@ -172,6 +171,7 @@ export default function ContestDetail() {
                   <tr>
                     <th scope="col">Label</th>
                     <th scope="col">Problem</th>
+                    {user && <th scope="col">Status</th>}
                     <th scope="col">Difficulty</th>
                   </tr>
                 </thead>
@@ -184,6 +184,11 @@ export default function ContestDetail() {
                       <td>
                         <Link to={`/problems/${problem.slug}?contest=${contest._id}`}>{problem.title}</Link>
                       </td>
+                      {user && (
+                        <td>
+                          <ProblemStatus status={problem.status} />
+                        </td>
+                      )}
                       <td>
                         <Difficulty level={problem.difficulty} />
                       </td>

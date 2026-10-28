@@ -22,9 +22,9 @@ export const signupBody = (overrides = {}) => {
 
 // A logged-in client. The agent keeps the jwt cookie between requests
 export const createUser = async ({ role = 'user' } = {}) => {
+	// Straight into the database: the signup route is rate limited per IP
 	const body = signupBody();
-	await request(app).post('/api/v1/auth/signup').send(body);
-	if (role !== 'user') await User.updateOne({ email: body.email }, { role });
+	await User.create({ ...body, role });
 
 	const agent = request.agent(app);
 	const res = await agent.post('/api/v1/auth/login').send({ email: body.email, password: PASSWORD });

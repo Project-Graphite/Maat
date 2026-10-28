@@ -16,3 +16,12 @@ export function Difficulty({ level }) {
     </span>
   )
 }
+
+export function ProblemStatus({ status }) {
+  if (!status) return <span className="sr-only">Not tried</span>
+  return (
+    <span className="verdict" data-tone={status === 'solved' ? 'good' : 'live'}>
+      {status === 'solved' ? 'Solved' : 'Tried'}
+    </span>
+  )
+}

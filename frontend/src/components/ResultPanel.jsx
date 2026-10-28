@@ -1,6 +1,5 @@
 import { STATUS, isFinal } from '../lib/verdicts.js'
 
-// The verdict for one submission: the overall result, then each test that was run.
 export default function ResultPanel({ result, waiting }) {
   if (!result && !waiting) return null
 
@@ -20,7 +19,7 @@ export default function ResultPanel({ result, waiting }) {
   return (
     <section className="result inscribed" aria-live="polite" aria-label="Verdict">
       <div className="result-head">
-        <span className="verdict result-status" data-tone={info.tone} data-live={info.live ? 'true' : undefined} style={{ '--verdict-color': undefined }}>
+        <span className="verdict result-status" data-tone={info.tone} data-live={info.live ? 'true' : undefined}>
           {info.label}
         </span>
       </div>

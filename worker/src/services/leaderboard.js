@@ -1,7 +1,5 @@
 import { redis } from './redis.js';
 
-// Write side of the backend's leaderboard service. The Lua script and the key names must
-// stay identical to backend/services/leaderboard.js, because both sides use the same data.
 const WRONG_ATTEMPT_PENALTY_MIN = 20;
 const SOLVED_WEIGHT = 1_000_000;
 

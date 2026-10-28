@@ -22,7 +22,7 @@ The web app for Ma'at. It is where people read problems, write and submit soluti
 | Problem | Read the statement on the left, write code on the right, pick C++17 or Python 3 and submit |
 | My submissions | See your history and open any submission to review its code and verdict |
 | Contests | See upcoming and running contests, a countdown, and live standings |
-| Profile | Change your name, upload a profile picture and change your password |
+| Profile | Change your name, upload a profile picture, change your password and delete your account |
 | Admin | Create problems, manage test cases, schedule contests and change user roles |
 | Privacy policy and terms of use | Plain-language legal pages, linked from the footer and the sign-up form |
 
@@ -45,6 +45,8 @@ Other commands:
 | :--- | :--- |
 | `npm run build` | Builds the production bundle into `dist/` |
 | `npm run preview` | Serves the built bundle locally |
+| `npm test` | Component and helper tests (Vitest) |
+| `npm run test:e2e` | Sign up, submit, live verdicts, contests, admin and account deletion in a real browser (Playwright). Needs the full stack running with `docker compose up -d`. Run `npx playwright install chromium` once first |
 
 ## Settings
 

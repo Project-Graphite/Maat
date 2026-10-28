@@ -33,7 +33,6 @@ export async function api(path, { method = 'GET', body, signal, rawBody, content
   return json
 }
 
-// Builds ?a=1&b=2, leaving out anything empty
 export const query = (params) => {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {

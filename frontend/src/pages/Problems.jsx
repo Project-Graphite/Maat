@@ -3,7 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom'
 import Pagination from '../components/Pagination.jsx'
 import Seo from '../components/Seo.jsx'
 import { EmptyState, ErrorState, Loading } from '../components/States.jsx'
-import { Difficulty } from '../components/VerdictBadge.jsx'
+import { Difficulty, ProblemStatus } from '../components/VerdictBadge.jsx'
+import { useAuth } from '../context/Auth.jsx'
 import { api, query } from '../lib/api.js'
 import { useAsync, useDebounced } from '../lib/hooks.js'
 
@@ -16,6 +17,7 @@ const LEVELS = [
 ]
 
 export default function Problems() {
+  const { user } = useAuth()
   const [params, setParams] = useSearchParams()
   const page = Number(params.get('page')) || 1
   const difficulty = params.get('difficulty') || ''
@@ -37,12 +39,11 @@ export default function Problems() {
   // Typing in the box changes the address bar once the typing pauses
   useEffect(() => {
     if (debounced !== urlSearch) update({ search: debounced, page: '' })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced])
 
   const { data, error, loading, reload } = useAsync(
     (signal) => api(`/problems${query({ page, limit: LIMIT, difficulty, sort, search: urlSearch })}`, { signal }),
-    [page, difficulty, sort, urlSearch],
+    [page, difficulty, sort, urlSearch, user?._id],
   )
 
   const problems = data?.data.problems || []
@@ -131,6 +132,7 @@ export default function Problems() {
               <thead>
                 <tr>
                   <th scope="col">Problem</th>
+                  {user && <th scope="col">Status</th>}
                   <th scope="col">Difficulty</th>
                   <th scope="col" className="num">
                     Time limit
@@ -146,6 +148,11 @@ export default function Problems() {
                     <td>
                       <Link to={`/problems/${problem.slug}`}>{problem.title}</Link>
                     </td>
+                    {user && (
+                      <td>
+                        <ProblemStatus status={problem.status} />
+                      </td>
+                    )}
                     <td>
                       <Difficulty level={problem.difficulty} />
                     </td>

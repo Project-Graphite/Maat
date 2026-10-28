@@ -18,7 +18,6 @@ export function useAsync(loader, deps) {
       },
     )
     return () => controller.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick])
 
   return { ...state, reload: () => setTick((t) => t + 1) }
@@ -33,7 +32,6 @@ export function useDebounced(value, delay = 300) {
   return debounced
 }
 
-// A clock that ticks, for countdowns
 export function useNow(intervalMs = 1000) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -82,7 +80,7 @@ export function useSubmissionStream(id, initial = null) {
         if (isFinal(submission.status)) return finish(submission)
         setResult((current) => (current && isFinal(current.status) ? current : submission))
       } catch {
-        // Try again on the next round
+        // A failed poll is retried on the next round
       }
       timer = setTimeout(() => poll(attempt + 1), POLL_DELAYS[Math.min(attempt, POLL_DELAYS.length - 1)])
     }
@@ -99,7 +97,6 @@ export function useSubmissionStream(id, initial = null) {
       socket.off('connect', watch)
       socket.emit('submission:unwatch', id)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   return result

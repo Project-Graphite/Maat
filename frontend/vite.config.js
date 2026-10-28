@@ -24,8 +24,13 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': backend,
         '/health': backend,
+        '/sitemap-problems.xml': backend,
         '/socket.io': { ...backend, ws: true },
       },
+    },
+    test: {
+      environment: 'jsdom',
+      include: ['src/**/*.test.{js,jsx}'],
     },
     build: {
       chunkSizeWarningLimit: 4000,

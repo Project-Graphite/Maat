@@ -1,6 +1,7 @@
 import Problem from '../models/problemModel.js';
 import TestCase from '../models/testCaseModel.js';
 import Submission from '../models/submissionModel.js';
+import { withStatus } from '../services/problemStatus.js';
 import Contest from '../models/contestModel.js';
 import APIFeatures from '../utils/apiFeatures.js';
 import catchAsync from '../utils/catchAsync.js';
@@ -36,10 +37,11 @@ const getAllProblems = catchAsync(async (req, res) => {
         .sort()
         .paginate();
 
-    const [problems, total] = await Promise.all([
-        features.query,
+    const [found, total] = await Promise.all([
+        features.query.lean(),
         Problem.countDocuments(features.conditions),
     ]);
+    const problems = await withStatus(found, req.user);
 
     res.status(200).json({
         status: 'success',
@@ -50,15 +52,15 @@ const getAllProblems = catchAsync(async (req, res) => {
     });
 });
 
-// Needs the identify middleware so admins can open hidden problems
 const getProblem = catchAsync(async (req, res, next) => {
-    const filter = { slug: String(req.params.slug).toLowerCase() };
-    if (!req.user || req.user.role !== 'admin') filter.visible = true;
+    const problem = await Problem.findOne({ slug: String(req.params.slug).toLowerCase() });
+    const open =
+        problem &&
+        (problem.visible ||
+            req.user?.role === 'admin' ||
+            (await Contest.exists({ 'problems.problemId': problem._id, startsAt: { $lte: new Date() } })));
+    if (!open) return next(new AppError('No problem found with that slug.', 404));
 
-    const problem = await Problem.findOne(filter);
-    if (!problem) return next(new AppError('No problem found with that slug.', 404));
-
-    // Only the sample cases are ever sent to the public
     const samples = await TestCase.find({ problemId: problem._id, isSample: true })
         .select('ordinal +input +expectedOutput')
         .sort('ordinal');
@@ -111,7 +113,6 @@ const createProblem = catchAsync(async (req, res) => {
     res.status(201).json({ status: 'success', data: { problem } });
 });
 
-// Loaded and saved (not findByIdAndUpdate) so the schema validators run
 const updateProblem = catchAsync(async (req, res, next) => {
     const problem = await Problem.findById(req.params.id);
     if (!problem) return next(new AppError('No problem found with that ID.', 404));

@@ -7,6 +7,7 @@ import Seo from '../components/Seo.jsx'
 import { ErrorState, Loading } from '../components/States.jsx'
 import { Difficulty } from '../components/VerdictBadge.jsx'
 import { useAuth } from '../context/Auth.jsx'
+import { useUi } from '../context/Ui.jsx'
 import { api } from '../lib/api.js'
 import { useAsync, useSubmissionStream } from '../lib/hooks.js'
 import { load, save } from '../lib/storage.js'
@@ -55,6 +56,7 @@ export default function ProblemDetail() {
   const contestId = params.get('contest') || undefined
   const location = useLocation()
   const { user } = useAuth()
+  const { confirm } = useUi()
 
   const { data, error, loading, reload } = useAsync((signal) => api(`/problems/${slug}`, { signal }), [slug])
   const contest = useAsync(
@@ -67,6 +69,9 @@ export default function ProblemDetail() {
   const [submissionId, setSubmissionId] = useState(null)
   const [sending, setSending] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const health = useAsync((signal) => fetch('/health', { signal }).then((res) => res.json()), [])
+  const [judgeOnline, setJudgeOnline] = useState(true)
+  const judgeOffline = !judgeOnline || health.data?.workers === 0
 
   // The draft for this problem and language, or a starter file
   useEffect(() => {
@@ -95,6 +100,7 @@ export default function ProblemDetail() {
         body: { problemId: data.data.problem._id, language, sourceCode: code, contestId },
       })
       setSubmissionId(res.data.submission._id)
+      setJudgeOnline(res.data.judgeOnline)
     } catch (err) {
       setSubmitError(err.message)
     }
@@ -146,9 +152,10 @@ export default function ProblemDetail() {
               </select>
             </label>
             <button
-              className="btn-link btn btn-quiet btn-small"
-              onClick={() => {
-                if (window.confirm('Replace your code with the starter file?')) onCode(STARTERS[language])
+              className="btn btn-quiet btn-small"
+              onClick={async () => {
+                const ok = await confirm('Your code for this problem will be replaced with the starter file.', { confirmLabel: 'Reset code', title: 'Reset your code?' })
+                if (ok) onCode(STARTERS[language])
               }}
             >
               Reset code
@@ -156,6 +163,12 @@ export default function ProblemDetail() {
           </div>
 
           <CodeEditor language={language} value={code} onChange={onCode} label={`${problem.title} solution`} />
+
+          {judgeOffline && (
+            <div className="notice" role="status">
+              No judge is running right now. You can still submit, and your solution will be judged as soon as one starts.
+            </div>
+          )}
 
           {submitError && (
             <div className="notice notice-error" role="alert">

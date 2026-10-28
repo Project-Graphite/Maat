@@ -213,3 +213,45 @@ describe('contest submissions', () => {
 		expect(res.status).toBe(404);
 	});
 });
+
+describe('judge availability', () => {
+	it('says whether a judge is running when a submission is queued', async () => {
+		const { agent } = await createUser();
+		expect((await submit(agent)).body.data.judgeOnline).toBe(true);
+
+		judgeQueue.getWorkersCount.mockResolvedValueOnce(0);
+		const res = await submit(agent);
+		expect(res.status).toBe(202);
+		expect(res.body.data.judgeOnline).toBe(false);
+	});
+});
+
+describe('hidden contest problems', () => {
+	const setup = async (startsIn) => {
+		const hidden = await createProblem({ title: 'Secret contest problem', slug: 'secret-contest', visible: false });
+		await createTestCase(hidden._id);
+		const contest = await createContest(hidden._id, { startsIn, endsIn: 60 * 60 * 1000 });
+		return { hidden, contest };
+	};
+
+	it('stay hidden before the contest starts', async () => {
+		const { agent } = await createUser();
+		await setup(30 * 60 * 1000);
+		expect((await agent.get('/api/v1/problems/secret-contest')).status).toBe(404);
+	});
+
+	it('open once the contest has started, and accept submissions through the contest', async () => {
+		const { agent } = await createUser();
+		const { hidden, contest } = await setup(-60 * 1000);
+
+		expect((await agent.get('/api/v1/problems/secret-contest')).status).toBe(200);
+		expect((await submit(agent, { problemId: hidden.id, contestId: contest.id })).status).toBe(202);
+		expect((await submit(agent, { problemId: hidden.id })).status).toBe(404);
+	});
+
+	it('stay out of the public problem list', async () => {
+		await setup(-60 * 1000);
+		const res = await request(app).get('/api/v1/problems');
+		expect(res.body.data.problems.map((p) => p.slug)).not.toContain('secret-contest');
+	});
+});

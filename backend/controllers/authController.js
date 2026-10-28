@@ -1,10 +1,14 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { promisify } from 'util';
+import bcrypt from 'bcryptjs';
 import User from '../models/userModel.js';
 import catchAsync from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
 import sendEmail from '../utils/email.js';
+import { allowedOrigins } from '../utils/sameOrigin.js';
+
+const DUMMY_HASH = bcrypt.hashSync('no account has this password', 12);
 
 const signToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -61,13 +65,19 @@ const signup = catchAsync(async (req, res, next) => {
 const login = catchAsync(async (req, res, next) => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-        return next(new AppError('Please provide email and password!', 400));
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
+        return next(new AppError('Please enter your email and password.', 400));
     }
 
     const user = await User.findOne({ email }).select('+password');
-    if (!user || !(await user.correctPassword(password, user.password))) {
-        return next(new AppError('Incorrect email or password', 401));
+    const passwordMatches = await bcrypt.compare(password, user ? user.password : DUMMY_HASH);
+    if (!user || !passwordMatches) {
+        return next(new AppError('Incorrect email or password.', 401));
+    }
+
+    if (user.deactivatedAt) {
+        user.deactivatedAt = undefined;
+        await user.save({ validateBeforeSave: false });
     }
 
     sendJWT(user, res);
@@ -82,16 +92,16 @@ const logout = catchAsync(async (req, res) => {
 const protect = catchAsync(async (req, res, next) => {
     const token = getToken(req);
     if (!token) {
-        return next(new AppError('You are not logged in! Please log in to get access.', 401));
+        return next(new AppError('Please log in to continue.', 401));
     }
 
     const decoded = await verifyToken(token);
     const currentUser = await User.findById(decoded.id);
-    if (!currentUser) {
-        return next(new AppError('The user belonging to this token does no longer exist.', 401));
+    if (!currentUser || currentUser.deactivatedAt) {
+        return next(new AppError('Your session has ended. Please log in again.', 401));
     }
     if (currentUser.changedPasswordAfter(decoded.iat)) {
-        return next(new AppError('User recently changed password! Please log in again.', 401));
+        return next(new AppError('Your session has ended. Please log in again.', 401));
     }
 
     req.user = currentUser;
@@ -110,7 +120,7 @@ const identify = catchAsync(async (req, res, next) => {
     }
 
     const currentUser = await User.findById(decoded.id);
-    if (currentUser && !currentUser.changedPasswordAfter(decoded.iat)) {
+    if (currentUser && !currentUser.deactivatedAt && !currentUser.changedPasswordAfter(decoded.iat)) {
         req.user = currentUser;
     }
     next();
@@ -132,7 +142,7 @@ const restrictTo = (...roles) => {
 
 const forgotPassword = catchAsync(async (req, res, next) => {
     if (typeof req.body.email !== 'string') {
-        return next(new AppError('Please provide your email address.', 400));
+        return next(new AppError('Please enter your email address.', 400));
     }
 
     const response = () =>
@@ -147,8 +157,8 @@ const forgotPassword = catchAsync(async (req, res, next) => {
     const resetToken = user.createPasswordResetToken();
     await user.save({ validateBeforeSave: false });
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const resetURL = `${frontendUrl}/reset-password/${resetToken}`;
+    const site = [...allowedOrigins][0] || 'http://localhost:8080';
+    const resetURL = `${site}/reset-password/${resetToken}`;
 
     try {
         await sendEmail({ to: user.email, ...resetPasswordEmail(resetURL) });
@@ -172,13 +182,14 @@ const resetPassword = catchAsync(async (req, res, next) => {
     });
 
     if (!user) {
-        return next(new AppError('Token is invalid or has expired', 400));
+        return next(new AppError('This reset link is invalid or has expired.', 400));
     }
 
     user.password = req.body.password;
     user.passwordConfirm = req.body.passwordConfirm;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
+    user.deactivatedAt = undefined;
     await user.save();
 
     sendJWT(user, res);
@@ -201,8 +212,20 @@ const updatePassword = catchAsync(async (req, res, next) => {
     sendJWT(user, res);
 });
 
+const deactivateAccount = catchAsync(async (req, res, next) => {
+    const user = await User.findById(req.user.id).select('+password');
+    if (typeof req.body.password !== 'string' || !(await user.correctPassword(req.body.password, user.password))) {
+        return next(new AppError('Your password is wrong.', 401));
+    }
+
+    await User.updateOne({ _id: user._id }, { deactivatedAt: new Date(), passwordChangedAt: new Date() });
+    res.clearCookie('jwt', cookieOptions());
+    res.status(200).json({ status: 'success' });
+});
+
 export {
     signup,
+    deactivateAccount,
     login,
     logout,
     protect,

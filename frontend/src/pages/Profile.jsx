@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Avatar } from '../components/Layout.jsx'
 import Seo from '../components/Seo.jsx'
 import { useAuth } from '../context/Auth.jsx'
@@ -161,6 +162,52 @@ function Password() {
   )
 }
 
+function DeleteAccount() {
+  const { logout } = useAuth()
+  const { toast, confirm } = useUi()
+  const navigate = useNavigate()
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (event) => {
+    event.preventDefault()
+    const ok = await confirm('Your account, photo and submissions will be deleted in 30 days. Log in before then to keep them.', {
+      confirmLabel: 'Delete my account',
+      title: 'Delete your account?',
+    })
+    if (!ok) return
+    setBusy(true)
+    setError('')
+    try {
+      await api('/users/me', { method: 'DELETE', body: { password } })
+      await logout()
+      toast('Your account will be deleted in 30 days. Log in before then to keep it.', 'success')
+      navigate('/')
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="panel">
+      <h2 className="panel-title">Delete account</h2>
+      <form className="form" onSubmit={submit}>
+        {error && <div className="notice notice-error" role="alert">{error}</div>}
+        <p className="muted">Your account is kept for 30 days in case you change your mind, then deleted for good.</p>
+        <div className="field">
+          <label htmlFor="delete-password">Password</label>
+          <input id="delete-password" type="password" className="input" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        </div>
+        <button className="btn btn-danger" disabled={busy}>
+          {busy ? 'Deleting' : 'Delete my account'}
+        </button>
+      </form>
+    </section>
+  )
+}
+
 export default function Profile() {
   const { user } = useAuth()
   return (
@@ -177,7 +224,10 @@ export default function Profile() {
           <Details />
           <Photo />
         </div>
-        <Password />
+        <div className="stack">
+          <Password />
+          <DeleteAccount />
+        </div>
       </div>
     </div>
   )

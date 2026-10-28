@@ -4,7 +4,7 @@ import { getAllProblems, getProblem } from '../controllers/problemController.js'
 
 const router = express.Router();
 
-router.get('/', getAllProblems);
+router.get('/', identify, getAllProblems);
 
 router.get('/:slug', identify, getProblem);
 

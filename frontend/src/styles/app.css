@@ -78,8 +78,7 @@
   position: sticky;
   top: 0;
   z-index: 30;
-  background: color-mix(in srgb, var(--void) 88%, transparent);
-  backdrop-filter: blur(10px);
+  background: var(--void);
   border-bottom: 1px solid var(--line-strong);
 }
 .site-header-inner {
@@ -184,6 +183,7 @@
 .site-footer {
   position: relative;
   z-index: 1;
+  background: var(--void);
   border-top: 1px solid var(--line);
   padding: 32px var(--gutter) 40px;
   color: var(--dust);
@@ -210,76 +210,90 @@
 
 /* ---------- Hieroglyph columns ---------- */
 
+/* Narrow carved columns, each framed by a gold rule on both sides, drifting at one steady pace.
+   One text node per column and plain overlays instead of masks keep the animation cheap. */
 .glyphs {
   position: fixed;
   inset: 0;
   z-index: 0;
   display: flex;
   justify-content: space-between;
+  padding: 0 clamp(12px, 3vw, 48px);
   overflow: hidden;
   pointer-events: none;
   user-select: none;
-  /* Fade the columns out toward the top and bottom edges */
-  mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent);
 }
-.glyphs-ambient {
-  opacity: 0.07;
-  /* On content pages only the margins show, so reading is never competing with the carving */
-  mask-image: linear-gradient(to right, #000, transparent 24%, transparent 76%, #000),
-    linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent);
-  mask-composite: intersect;
+/* Fade the columns out toward the top and bottom edges */
+.glyphs::before,
+.glyphs::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18%;
+  z-index: 1;
 }
-.glyphs-hero {
-  opacity: 0.2;
+.glyphs::before {
+  top: 0;
+  background: linear-gradient(var(--void), transparent);
+}
+.glyphs::after {
+  bottom: 0;
+  background: linear-gradient(transparent, var(--void));
 }
 
 .glyph-column {
-  flex: 1 1 0;
-  display: flex;
-  justify-content: center;
-  min-width: 0;
+  width: 44px;
+  flex: none;
+  overflow: hidden;
+  contain: strict;
+  border-left: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
 }
 .glyph-track {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   font-family: var(--font-glyph);
-  font-size: var(--glyph-size, 34px);
-  line-height: 1.5;
-  color: var(--gold);
+  font-size: 26px;
+  line-height: 44px;
+  text-align: center;
   white-space: pre;
+  color: var(--gold);
+  opacity: var(--glyph-opacity, 0.12);
+  backface-visibility: hidden;
   will-change: transform;
-  animation: glyph-up var(--glyph-duration, 120s) linear infinite;
+  animation: glyph-up 80s linear infinite;
 }
 .glyph-column[data-dir='down'] .glyph-track {
   animation-name: glyph-down;
 }
-.glyph-track > span {
-  display: block;
+
+.glyphs-hero {
+  --glyph-opacity: 0.3;
 }
-/* Every second column is brighter, the way carving catches the light unevenly */
-.glyph-column:nth-child(3n) .glyph-track {
-  color: var(--gold-bright);
-  opacity: 0.7;
+/* On content pages only the outermost column on each side shows, and only where the margin
+   is wide enough that it never sits under the content */
+.glyphs-ambient .glyph-column:not(:first-child):not(:last-child) {
+  visibility: hidden;
 }
-.glyph-column:nth-child(4n + 2) .glyph-track {
-  color: var(--gold-deep);
+@media (max-width: 1360px) {
+  .glyphs-ambient {
+    display: none;
+  }
 }
 
 @keyframes glyph-up {
   from {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translateY(-50%);
+    transform: translate3d(0, -50%, 0);
   }
 }
 @keyframes glyph-down {
   from {
-    transform: translateY(-50%);
+    transform: translate3d(0, -50%, 0);
   }
   to {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -291,9 +305,6 @@
 @media (max-width: 760px) {
   .glyph-column:nth-child(n + 7) {
     display: none;
-  }
-  .glyphs-ambient {
-    opacity: 0.06;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -866,96 +877,11 @@
   }
 }
 
-.section {
-  padding: 72px 0;
-  border-top: 1px solid var(--line);
-}
-.section h2 {
-  margin-bottom: 12px;
-}
-.section-lead {
-  color: var(--dust);
-  margin-bottom: 40px;
-}
-
-.steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  border: 1px solid var(--line-strong);
-  background: var(--basalt);
-}
-.steps li {
-  padding: 28px;
-  border-right: 1px solid var(--line);
-  counter-increment: step;
-}
-.steps li:last-child {
-  border-right: 0;
-}
-.steps li::before {
-  content: counter(step);
-  display: block;
-  margin-bottom: 14px;
-  font-family: var(--font-display);
-  font-size: var(--step-3);
-  color: var(--gold);
-}
-.steps h3 {
-  font-size: var(--step-1);
-  margin-bottom: 8px;
-}
-.steps p {
-  color: var(--dust);
-}
-.steps {
-  counter-reset: step;
-}
-
-.facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 40px 56px;
-}
-.facts dt {
-  font-family: var(--font-display);
-  font-size: var(--step-1);
-  color: var(--gold);
-  margin-bottom: 6px;
-}
-.facts dd {
-  margin: 0;
-  color: var(--dust);
-}
-
-.cta-band {
-  padding: 72px 0 0;
-  border-top: 1px solid var(--line);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px 48px;
-}
-
 @media (max-width: 980px) {
   .hero {
     grid-template-columns: 1fr;
     gap: 40px;
     min-height: 0;
-  }
-  .steps {
-    grid-template-columns: 1fr;
-  }
-  .steps li {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .steps li:last-child {
-    border-bottom: 0;
   }
 }
 

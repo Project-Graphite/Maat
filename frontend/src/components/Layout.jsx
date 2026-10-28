@@ -90,7 +90,7 @@ function Footer() {
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">
-        <span>Ma’at weighs your code against the tests.</span>
+        <span>© {new Date().getFullYear()} Ma’at</span>
         <nav className="footer-links" aria-label="Legal">
           <Link to="/privacy">Privacy policy</Link>
           <Link to="/terms">Terms of use</Link>
@@ -103,7 +103,6 @@ function Footer() {
 export default function Layout() {
   const { pathname } = useLocation()
 
-  // Back to the top on every new page
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [pathname])
@@ -113,7 +112,8 @@ export default function Layout() {
       <a href="#main" className="skip-link">
         Skip to content
       </a>
-      <Glyphs variant={pathname === '/' ? 'hero' : 'ambient'} />
+      {/* The problem page uses the full width, so it has no room for the columns */}
+      {!pathname.startsWith('/problems/') && <Glyphs variant={pathname === '/' ? 'hero' : 'ambient'} />}
       <Header />
       <main id="main" className="shell-main">
         <Outlet />

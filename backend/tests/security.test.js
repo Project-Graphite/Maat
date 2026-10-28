@@ -61,3 +61,28 @@ describe('input sanitizing', () => {
 		expect(res.status).toBe(413);
 	});
 });
+
+describe('rate limits', () => {
+	it('slows down password guessing on one account', async () => {
+		const { email } = await createUser();
+		for (let i = 0; i < 10; i++) {
+			const res = await request(app).post('/api/v1/auth/login').send({ email, password: 'wrong-password' });
+			expect(res.status).toBe(401);
+		}
+		const blocked = await request(app).post('/api/v1/auth/login').send({ email, password: PASSWORD });
+		expect(blocked.status).toBe(429);
+	});
+
+	it('does not count successful logins', async () => {
+		const { email } = await createUser();
+		for (let i = 0; i < 12; i++) {
+			expect((await request(app).post('/api/v1/auth/login').send({ email, password: PASSWORD })).status).toBe(200);
+		}
+	});
+
+	it('limits password checks per account', async () => {
+		const { agent } = await createUser();
+		for (let i = 0; i < 10; i++) await agent.delete('/api/v1/users/me').send({ password: 'wrong-password' });
+		expect((await agent.delete('/api/v1/users/me').send({ password: 'wrong-password' })).status).toBe(429);
+	});
+});

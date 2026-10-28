@@ -1,8 +1,6 @@
 const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-const dateOnly = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
 
 export const formatDateTime = (value) => (value ? dateTime.format(new Date(value)) : '')
-export const formatDate = (value) => (value ? dateOnly.format(new Date(value)) : '')
 
 // Local time in the shape <input type="datetime-local"> wants
 export const toInputDateTime = (value) => {

@@ -5,6 +5,7 @@ import catchAsync from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
 import isObjectId from '../utils/isObjectId.js';
 import pick from '../utils/pick.js';
+import { withStatus } from '../services/problemStatus.js';
 
 const EDITABLE = ['title', 'startsAt', 'endsAt', 'problems'];
 
@@ -92,6 +93,7 @@ const getContest = catchAsync(async (req, res, next) => {
         data.problems = data.problems
             .filter((p) => p.problemId)
             .map(({ label, problemId }) => ({ label, ...problemId }));
+        data.problems = await withStatus(data.problems, req.user, { contestId: contest._id });
     }
 
     res.status(200).json({ status: 'success', data: { contest: data } });

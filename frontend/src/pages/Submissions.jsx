@@ -29,7 +29,6 @@ export default function Submissions() {
     if (!waiting) return undefined
     const timer = setInterval(reload, 4000)
     return () => clearInterval(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waiting])
 
   const update = (changes) => {

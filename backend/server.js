@@ -16,12 +16,14 @@ process.on('uncaughtException', (err) => {
 import app from './app.js';
 import * as storage from './utils/storage.js';
 import { initSockets } from './sockets/index.js';
+import { scheduleAccountCleanup } from './services/accountCleanup.js';
 
 const DB = process.env.DATABASE_LOCAL;
 mongoose
 	.connect(DB)
 	.then((con) => {
 		console.log('DB connection successful!');
+		scheduleAccountCleanup();
 	})
 	.catch((err) => {
 		console.log('DB connection error:', err);

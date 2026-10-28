@@ -1,5 +1,5 @@
 import express from 'express';
-import { protect, restrictTo } from '../controllers/authController.js';
+import { deactivateAccount, protect, restrictTo } from '../controllers/authController.js';
 import {
     getMe,
     updateMe,
@@ -10,6 +10,7 @@ import {
     updateUserRole,
 } from '../controllers/userController.js';
 import { AVATAR_MAX_BYTES, AVATAR_TYPES } from '../utils/storage.js';
+import * as limits from '../utils/rateLimits.js';
 
 const router = express.Router();
 
@@ -17,9 +18,11 @@ router.get('/:id/avatar', getAvatar);
 router.use(protect);
 router.get('/me', getMe);
 router.patch('/me', updateMe);
+router.delete('/me', limits.passwordCheck, deactivateAccount);
 
 router.put(
     '/me/avatar',
+    limits.avatar,
     express.raw({ type: Object.keys(AVATAR_TYPES), limit: AVATAR_MAX_BYTES }),
     uploadAvatar,
 );

@@ -111,6 +111,7 @@ const execute = (
 			'--pids-limit=64',
 			'--cap-drop=ALL',
 			'--security-opt=no-new-privileges',
+			...(process.env.SANDBOX_CPUSET ? [`--cpuset-cpus=${process.env.SANDBOX_CPUSET}`] : []),
 			'--tmpfs',
 			`/tmp:rw,size=${tmpfsMb}m`,
 		];
@@ -243,8 +244,6 @@ export const measureBaseline = async (samples = 5) => {
 	baselineMs = times[Math.floor(times.length / 2)];
 	return baselineMs;
 };
-
-export const getBaseline = () => baselineMs;
 
 /**
  * Compiles the source saved in `workDir` (it must be writable by uid 10001). Python needs no

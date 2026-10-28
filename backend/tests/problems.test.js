@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import Contest from '../models/contestModel.js';
+import Submission from '../models/submissionModel.js';
 import Problem from '../models/problemModel.js';
 import TestCase from '../models/testCaseModel.js';
 import { createAdmin, createContest, createProblem, createTestCase, createUser } from './helpers.js';
@@ -221,5 +222,46 @@ describe('public problems', () => {
 
 	it('answers 404 for an unknown slug', async () => {
 		expect((await request(app).get('/api/v1/problems/nope')).status).toBe(404);
+	});
+});
+
+describe('problem status', () => {
+	const statusOf = (res, title) => res.body.data.problems.find((p) => p.title === title).status;
+
+	it('shows solved, tried, or nothing for each problem', async () => {
+		const { agent, user } = await createUser();
+		const solved = await createProblem({ title: 'Solved one' });
+		const tried = await createProblem({ title: 'Tried one' });
+		await createProblem({ title: 'Untouched' });
+		const submit = (problem, status) =>
+			Submission.create({ userId: user._id, problemId: problem._id, language: 'python3', sourceCode: 'x', status });
+		await submit(solved, 'WRONG_ANSWER');
+		await submit(solved, 'ACCEPTED');
+		await submit(tried, 'TLE');
+
+		const res = await agent.get('/api/v1/problems');
+		expect(statusOf(res, 'Solved one')).toBe('solved');
+		expect(statusOf(res, 'Tried one')).toBe('tried');
+		expect(statusOf(res, 'Untouched')).toBeNull();
+	});
+
+	it('is left out for visitors', async () => {
+		await createProblem({ title: 'Solved one' });
+		const res = await request(app).get('/api/v1/problems');
+		expect(res.body.data.problems[0].status).toBeUndefined();
+	});
+
+	it('counts only submissions made in the contest on a contest page', async () => {
+		const { agent, user } = await createUser();
+		const problem = await createProblem();
+		const contest = await createContest(problem._id);
+		await Submission.create({ userId: user._id, problemId: problem._id, language: 'python3', sourceCode: 'x', status: 'ACCEPTED' });
+
+		const before = await agent.get(`/api/v1/contests/${contest.id}`);
+		expect(before.body.data.contest.problems[0].status).toBeNull();
+
+		await Submission.create({ userId: user._id, problemId: problem._id, contestId: contest._id, language: 'python3', sourceCode: 'x', status: 'ACCEPTED' });
+		const after = await agent.get(`/api/v1/contests/${contest.id}`);
+		expect(after.body.data.contest.problems[0].status).toBe('solved');
 	});
 });

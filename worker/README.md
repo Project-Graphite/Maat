@@ -24,6 +24,7 @@ For every job it receives, the worker:
 | Memory Limit Exceeded | The kernel killed the program for going over its memory limit |
 | Runtime Error | The program exited with a non-zero code or crashed |
 | Compile Error | The code did not compile |
+| Judge Error | Judging failed on our side, for example Docker was down. Set after the retry also fails, so a submission never stays stuck as running. It does not count in contests |
 
 Output is compared after removing carriage returns and trailing spaces on each line, and trimming blank lines at both ends, so harmless whitespace differences do not fail a correct solution.
 
@@ -95,27 +96,32 @@ worker/
 │   ├── judge.js     Handles one submission from start to finish
 │   ├── sandbox.js   Wraps docker run, timeouts and cleanup
 │   ├── verdict.js   Output comparison and classification
-│   └── models/      Small copies of the Submission, Problem and TestCase schemas
+│   ├── models/      Small copies of the Submission, Problem, TestCase and Contest schemas
+│   └── services/    Redis and the contest standings
 ├── sandbox-images/  Dockerfiles for the C++ and Python runtimes
-└── tests/adversarial/  Hostile programs and the verdict each must get
+└── tests/
+    ├── unit/         Verdict rules
+    ├── integration/  Contest scoring against Redis
+    └── adversarial/  Hostile programs and the verdict each must get
 ```
 
 The worker builds in its own Docker context, which is why it keeps its own copies of the schemas. They need to stay in step with the backend's models.
 
 ## Adversarial tests
 
-The strongest proof that the sandbox works is a set of programs that try to break it. Each one has an expected outcome, and the suite runs against real Docker in CI.
+The strongest proof that the sandbox works is a set of programs that try to break it. Each one has an expected outcome, and the suite runs against real Docker.
 
 | Program | Expected |
 | :--- | :--- |
 | Infinite loop | Time Limit Exceeded |
-| Fork bomb | Contained by the process limit, host stays healthy |
+| Fork bomb | Contained by the process limit, Time Limit Exceeded |
 | Allocates 2 GB | Memory Limit Exceeded |
 | Prints forever | Wrong Answer, stopped by the output cap |
 | Opens a socket or runs curl | Fails, there is no network |
 | Writes to `/` or reads `/etc/passwd` | The write fails, the read only shows the container's own files |
-| Template recursion compile bomb | Compile Error, stopped by the compile timeout and memory limit |
+| Compile-time computation that never ends | Compile Error, stopped by the compile timeout and memory limit |
 
 ```sh
-npm test
+npm run ad                 # the hostile programs, needs Docker and the sandbox images
+npm test                   # verdict rules, and contest scoring when Redis is running
 ```

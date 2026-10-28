@@ -6,18 +6,18 @@ import bcrypt from 'bcryptjs';
 const userSchema = new mongoose.Schema({
 	name: {
 		type: String,
-		required: [true, 'Please tell us your name!'],
+		required: [true, 'Please enter a name.'],
 		trim: true,
 		unique: true,
-		minlength: 3,
-		maxlength: 30,
+		minlength: [3, 'Your name must be at least 3 characters.'],
+		maxlength: [30, 'Your name must be at most 30 characters.'],
 	},
 	email: {
 		type: String,
-		required: [true, 'Please provide your email'],
+		required: [true, 'Please enter your email address.'],
 		unique: true,
 		lowercase: true,
-		validate: [validator.isEmail, 'Please provide a valid email'],
+		validate: [validator.isEmail, 'Please enter a valid email address.'],
 	},
 	photo: String,
 	role: {
@@ -27,23 +27,24 @@ const userSchema = new mongoose.Schema({
 	},
 	password: {
 		type: String,
-		required: [true, 'Please provide a password'],
-		minlength: 8,
+		required: [true, 'Please enter a password.'],
+		minlength: [8, 'Your password must be at least 8 characters.'],
 		select: false,
 	},
 	passwordConfirm: {
 		type: String,
-		required: [true, 'Please confirm your password'],
+		required: [true, 'Please repeat your password.'],
 		validate: {
 			validator: function (el) {
 				return el === this.password;
 			},
-			message: 'Passwords are not the same!',
+			message: 'The two passwords do not match.',
 		},
 	},
 	passwordChangedAt: Date,
 	passwordResetToken: String,
 	passwordResetExpires: Date,
+	deactivatedAt: Date,
 });
 
 userSchema.pre('save', async function (next) {

@@ -11,7 +11,7 @@ import { classify } from './verdict.js';
 
 const JOBS_DIR = process.env.JOBS_DIR || '/opt/maat-jobs';
 const FINAL = new Set(['ACCEPTED', 'WRONG_ANSWER', 'TLE', 'MLE', 'RUNTIME_ERROR', 'COMPILE_ERROR', 'SYSTEM_ERROR']);
-export const VERDICT_CHANNEL = 'verdicts';
+const VERDICT_CHANNEL = 'verdicts';
 
 const runTests = async (submission, problem, testCases, jobDir) => {
 	const { language } = submission;

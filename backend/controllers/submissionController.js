@@ -41,7 +41,7 @@ const createSubmission = catchAsync(async (req, res, next) => {
     }
 
     const problem = await Problem.findById(problemId).select('visible');
-    if (!problem || (!problem.visible && req.user.role !== 'admin')) {
+    if (!problem || (!problem.visible && req.user.role !== 'admin' && contestId === undefined)) {
         return next(new AppError('No problem found with that ID.', 404));
     }
 
@@ -68,6 +68,7 @@ const createSubmission = catchAsync(async (req, res, next) => {
         await Submission.deleteOne({ _id: submission._id });
         return next(new AppError('The judge is unavailable right now. Please try again.', 503));
     }
+    const judgeOnline = (await judgeQueue.getWorkersCount().catch(() => 0)) > 0;
 
     res.status(202).json({
         status: 'success',
@@ -77,6 +78,7 @@ const createSubmission = catchAsync(async (req, res, next) => {
                 status: submission.status,
                 submittedAt: submission.submittedAt,
             },
+            judgeOnline,
         },
     });
 });

@@ -1,3 +1,10 @@
+x-logging: &logging
+  driver: json-file
+  # Logs hold IP addresses, so they are rotated instead of kept forever
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   mongo:
     image: mongo:7
@@ -14,23 +21,35 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}"]
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
 
   minio:
-    image: cgr.dev/chainguard/minio:latest
+    image: cgr.dev/chainguard/minio@sha256:d88920d6a50bd0b088223b688be3b76c63e6205dbe494437f67ba1240ea12880
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     ports:
@@ -47,9 +66,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
 
   minio-init:
-    image: cgr.dev/chainguard/minio-client:latest
+    image: cgr.dev/chainguard/minio-client@sha256:72f9978d415ea8294d78051fb3aee2fd258d449237633f77f100b5367bb5225d
     depends_on:
       minio:
         condition: service_healthy
@@ -63,15 +88,20 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
     volumes:
       - ./infra/minio/init.sh:/init.sh:ro
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128m
 
   backend:
     build: ./backend
     restart: unless-stopped
     env_file: .env
     environment:
-      PORT: 5000
       DATABASE_LOCAL: mongodb://maat:${MONGO_PASSWORD}@mongo:27017/maat?authSource=admin
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       S3_ENDPOINT: http://minio:9000
       API_RATE_LIMIT: ${API_RATE_LIMIT:?set API_RATE_LIMIT in .env}
     ports:
@@ -83,6 +113,12 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512m
 
   worker:
     build: ./worker
@@ -90,8 +126,9 @@ services:
     env_file: .env
     environment:
       DATABASE_LOCAL: mongodb://maat:${MONGO_PASSWORD}@mongo:27017/maat?authSource=admin
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       JOBS_DIR: /opt/maat-jobs
+      SANDBOX_CPUSET: ${SANDBOX_CPUSET:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/maat-jobs:/opt/maat-jobs
@@ -100,14 +137,31 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    logging: *logging
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_SITE_URL: ${VITE_SITE_URL:-http://localhost:8080}
+        VITE_CONTACT_EMAIL: ${VITE_CONTACT_EMAIL:-}
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:80"
     depends_on:
       - backend
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128m
 
   sandbox-cpp:
     build:

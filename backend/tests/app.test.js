@@ -6,7 +6,7 @@ describe('app', () => {
 	it('reports health when mongo and redis are up', async () => {
 		const res = await request(app).get('/health');
 		expect(res.status).toBe(200);
-		expect(res.body).toEqual({ status: 'ok', mongo: 'up', redis: 'up' });
+		expect(res.body).toEqual({ status: 'ok', mongo: 'up', redis: 'up', workers: 1 });
 	});
 
 	it('answers an unknown route with a 404', async () => {
