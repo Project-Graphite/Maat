@@ -49,6 +49,58 @@ If no worker is running, submissions wait in the queue. `/health` reports how ma
 
 Because workers are stateless and only talk to the queue, more capacity is just more workers. Judging is CPU-bound, so throughput climbs with each worker until the host runs out of cores. [load-tests](load-tests) shows where that happens.
 
+### One submission in detail
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant A as Backend
+    participant M as MongoDB
+    participant R as Redis
+    participant W as Worker
+    participant S as Sandbox
+
+    Note over W: On startup: remove leftover sandboxes, measure container startup time, then wait on the queue
+    B->>A: POST /api/v1/submissions (through nginx)
+    A->>A: Rate limit, login check, validate language, size, problem and contest
+    A->>M: Save submission as PENDING
+    alt Redis is down
+        A->>M: Delete the submission again
+        A-->>B: 503, the judge is unavailable
+    else Queued
+        A->>R: Add a job holding only the submission ID to bull:judge:wait
+        A-->>B: 202 Accepted, plus whether any worker is connected
+    end
+    B->>A: Socket.IO submission:watch
+    A->>A: Check the user owns it, join the submission room
+    Note over B,A: The browser also polls GET /submissions/ID as a backup
+    W->>R: Take the next job, wait to active, and hold a lock on it
+    W->>M: Load the submission, problem and hidden tests
+    W->>M: Set status RUNNING
+    loop Compile (C++ only), then each test in order, stopping at the first failure
+        W->>S: docker run with no network, read-only, CPU, memory and process limits
+        S-->>W: Output, time, exit code
+    end
+    alt Judged
+        W->>M: Save verdict, per-test results and judgedAt
+        opt Contest submission
+            W->>R: Lua script updates the user's score and the contest board sorted set
+        end
+        W->>R: PUBLISH the verdict on the verdicts channel
+        W->>R: Mark the job completed
+    else Failed twice (error, crash or stalled lock)
+        W->>M: Save SYSTEM_ERROR (Judge Error), not scored in contests
+        W->>R: PUBLISH the verdict on the verdicts channel
+    end
+    R-->>A: Verdict message
+    A-->>B: submission:verdict to the submission room
+    opt Contest submission
+        A-->>B: contest:update, and the page reloads the standings
+    end
+    Note over B,M: A verdict missed by the socket is picked up by polling, since MongoDB is written before the publish
+```
+
 ## Tech stack
 
 | Part | Choice |
