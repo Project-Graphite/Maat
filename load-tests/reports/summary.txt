@@ -1,0 +1,8 @@
+Starting the stack with the load test settings
+workers=1 accept={"sent":181,"accepted":181,"acceptP95Ms":14,"acceptAvgMs":10} judged={"submitted":181,"judged":181,"judgedPerMinute":58,"avgLatencyMs":64349,"p50LatencyMs":65087,"p95LatencyMs":120510,"statuses":{"ACCEPTED":181}}
+workers=2 accept={"sent":181,"accepted":181,"acceptP95Ms":16,"acceptAvgMs":12} judged={"submitted":181,"judged":181,"judgedPerMinute":93,"avgLatencyMs":29349,"p50LatencyMs":29919,"p95LatencyMs":54450,"statuses":{"ACCEPTED":181}}
+workers=4 accept={"sent":180,"accepted":180,"acceptP95Ms":22,"acceptAvgMs":15} judged={"submitted":180,"judged":180,"judgedPerMinute":149,"avgLatencyMs":7611,"p50LatencyMs":7531,"p95LatencyMs":12708,"statuses":{"ACCEPTED":180}}
+workers=8 accept={"sent":181,"accepted":181,"acceptP95Ms":31,"acceptAvgMs":19} judged={"submitted":181,"judged":181,"judgedPerMinute":172,"avgLatencyMs":4235,"p50LatencyMs":4108,"p95LatencyMs":5669,"statuses":{"ACCEPTED":181}}
+reading load: {"requests":6000,"perSecond":100,"failed":0,"avgMs":4,"p95Ms":5}
+Removed 40 load test users and 723 submissions
+Done. Restart the stack with your normal settings: docker compose up -d

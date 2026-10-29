@@ -7,6 +7,7 @@ import { useAuth } from '../../context/Auth.jsx'
 import { useUi } from '../../context/Ui.jsx'
 import { api, query } from '../../lib/api.js'
 import { useAsync, useDebounced } from '../../lib/hooks.js'
+import { ROLE_LABELS, canChangeRole, canManage } from '../../lib/roles.js'
 
 const LIMIT = 20
 
@@ -41,12 +42,27 @@ export default function AdminUsers() {
     reload()
   }
 
+  const remove = async (user) => {
+    const ok = await confirm(`${user.name}’s account, photo, submissions and contest results will be deleted for good.`, {
+      confirmLabel: 'Delete user',
+      title: 'Delete this user?',
+    })
+    if (!ok) return
+    try {
+      await api(`/users/${user._id}`, { method: 'DELETE' })
+      toast(`${user.name} was deleted.`, 'success')
+    } catch (err) {
+      toast(err.message, 'error')
+    }
+    reload()
+  }
+
   return (
     <>
       <header className="page-head">
         <div>
           <h1>Users</h1>
-          <p>Admins can manage problems, contests and other users.</p>
+          <p>Admins manage problems and contests and can delete regular users. Only the super admin changes roles and manages admins.</p>
         </div>
       </header>
 
@@ -70,6 +86,9 @@ export default function AdminUsers() {
                   <th scope="col">Name</th>
                   <th scope="col">Email</th>
                   <th scope="col">Role</th>
+                  <th scope="col">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -83,20 +102,32 @@ export default function AdminUsers() {
                     </td>
                     <td className="muted">{user.email}</td>
                     <td>
-                      <label className="sr-only" htmlFor={`role-${user._id}`}>
-                        Role of {user.name}
-                      </label>
-                      <select
-                        id={`role-${user._id}`}
-                        className="select"
-                        style={{ width: 'auto', minWidth: 130 }}
-                        value={user.role}
-                        disabled={user._id === me._id}
-                        onChange={(e) => changeRole(user, e.target.value)}
-                      >
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                      {canChangeRole(me, user) ? (
+                        <>
+                          <label className="sr-only" htmlFor={`role-${user._id}`}>
+                            Role of {user.name}
+                          </label>
+                          <select
+                            id={`role-${user._id}`}
+                            className="select"
+                            style={{ width: 'auto', minWidth: 130 }}
+                            value={user.role}
+                            onChange={(e) => changeRole(user, e.target.value)}
+                          >
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        </>
+                      ) : (
+                        <span className={user.role === 'user' ? 'tag' : 'tag tag-gold'}>{ROLE_LABELS[user.role]}</span>
+                      )}
+                    </td>
+                    <td className="num">
+                      {canManage(me, user) && (
+                        <button className="btn btn-danger btn-small" onClick={() => remove(user)}>
+                          Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

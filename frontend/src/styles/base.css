@@ -20,6 +20,12 @@
   --papyrus: #efe6d0;
   --dust: #a89d84;
 
+  /* Gold as text, and text that sits on gold */
+  --gold-text: var(--gold);
+  --gold-text-hover: var(--gold-bright);
+  --on-gold: #000000;
+  --focus: var(--gold-bright);
+
   /* Verdict pigments: malachite, carnelian, lapis, and gold while it is still being weighed */
   --malachite: #5db88a;
   --carnelian: #e0654a;
@@ -44,6 +50,44 @@
   --page-width: 1120px;
   --nav-height: 68px;
   color-scheme: dark;
+}
+
+/* Light mode: papyrus instead of basalt. The gold stays; gold text is a deeper shade so it can be read */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --void: #f6efdf;
+    --basalt: #fffaf0;
+    --basalt-high: #efe4c9;
+    --line: #e2d4b0;
+    --line-strong: #c8b07a;
+    --papyrus: #1f1a12;
+    --dust: #6b5f45;
+    --gold-text: #8a6417;
+    --gold-text-hover: #5e430c;
+    --focus: #8a6417;
+    --malachite: #2b7a51;
+    --carnelian: #b23d26;
+    --lapis: #2f5cb0;
+    --amethyst: #7350aa;
+    color-scheme: light;
+  }
+}
+:root[data-theme='light'] {
+  --void: #f6efdf;
+  --basalt: #fffaf0;
+  --basalt-high: #efe4c9;
+  --line: #e2d4b0;
+  --line-strong: #c8b07a;
+  --papyrus: #1f1a12;
+  --dust: #6b5f45;
+  --gold-text: #8a6417;
+  --gold-text-hover: #5e430c;
+  --focus: #8a6417;
+  --malachite: #2b7a51;
+  --carnelian: #b23d26;
+  --lapis: #2f5cb0;
+  --amethyst: #7350aa;
+  color-scheme: light;
 }
 
 *,
@@ -100,22 +144,22 @@ p {
 }
 
 a {
-  color: var(--gold);
+  color: var(--gold-text);
   text-underline-offset: 0.2em;
   text-decoration-thickness: 1px;
 }
 a:hover {
-  color: var(--gold-bright);
+  color: var(--gold-text-hover);
 }
 
 :focus-visible {
-  outline: 2px solid var(--gold-bright);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 
 ::selection {
   background: var(--gold);
-  color: var(--void);
+  color: var(--on-gold);
 }
 
 img,
@@ -169,7 +213,7 @@ hr {
   z-index: 100;
   padding: 10px 16px;
   background: var(--gold);
-  color: var(--void);
+  color: var(--on-gold);
   text-decoration: none;
 }
 .skip-link:focus {

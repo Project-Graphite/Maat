@@ -1,14 +1,44 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import CodeEditor from '../components/CodeEditor.jsx'
 import ResultPanel from '../components/ResultPanel.jsx'
 import Seo from '../components/Seo.jsx'
 import { ErrorState, Loading } from '../components/States.jsx'
+import { useAuth } from '../context/Auth.jsx'
+import { useUi } from '../context/Ui.jsx'
 import { api } from '../lib/api.js'
 import { formatDateTime } from '../lib/format.js'
 import { useAsync, useSubmissionStream } from '../lib/hooks.js'
 import { LANGUAGES } from '../lib/verdicts.js'
 
+// Authors choose whether an accepted solution appears on the problem's solutions page
+function Sharing({ submission }) {
+  const { toast } = useUi()
+  const [shared, setShared] = useState(Boolean(submission.public))
+  const [busy, setBusy] = useState(false)
+
+  const change = async (next) => {
+    setBusy(true)
+    try {
+      await api(`/submissions/${submission._id}`, { method: 'PATCH', body: { public: next } })
+      setShared(next)
+      toast(next ? 'Shared on the solutions page.' : 'Hidden from the solutions page.', 'success')
+    } catch (err) {
+      toast(err.message, 'error')
+    }
+    setBusy(false)
+  }
+
+  return (
+    <label className="check">
+      <input type="checkbox" checked={shared} disabled={busy} onChange={(e) => change(e.target.checked)} />
+      Share on the solutions page {submission.status === 'ACCEPTED' ? '' : '(only accepted solutions are shown)'}
+    </label>
+  )
+}
+
 function Detail({ submission }) {
+  const { user } = useAuth()
   // Still being judged: the verdict arrives here without a reload
   const live = useSubmissionStream(submission._id, submission)
   const result = live || submission
@@ -38,6 +68,7 @@ function Detail({ submission }) {
 
       <div className="stack">
         <ResultPanel result={result} />
+        {user && submission.userId === user._id && <Sharing submission={submission} />}
         <section aria-labelledby="source-title">
           <h2 id="source-title" style={{ fontSize: 'var(--step-1)', marginBottom: 12 }}>
             Your code

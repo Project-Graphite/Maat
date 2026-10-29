@@ -7,16 +7,12 @@ const contestSchema = new mongoose.Schema({
         trim: true,
         maxlength: 100,
     },
-    startsAt: {
-        type: Date,
-        required: [true, 'A contest must have a start time'],
-    },
+    startsAt: Date,
     endsAt: {
         type: Date,
-        required: [true, 'A contest must have an end time'],
         validate: {
             validator: function (el) {
-                return el > this.startsAt;
+                return !el || !this.startsAt || el > this.startsAt;
             },
             message: 'A contest must end after it starts',
         },
@@ -37,6 +33,13 @@ const contestSchema = new mongoose.Schema({
             },
         },
     ],
+});
+
+contestSchema.pre('validate', function (next) {
+    if (!this.startsAt !== !this.endsAt) {
+        this.invalidate('startsAt', 'A contest needs both a start and an end time, or neither.');
+    }
+    next();
 });
 
 contestSchema.index({ startsAt: 1 });

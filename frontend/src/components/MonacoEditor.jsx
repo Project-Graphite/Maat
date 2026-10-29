@@ -1,15 +1,54 @@
 import Editor, { loader } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor/editor/editor.main.js'
 import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker'
+import { formatCode } from '../lib/formatter.js'
+import { useTheme } from '../lib/theme.js'
 import { LANGUAGES } from '../lib/verdicts.js'
 
 // Serve Monaco from our own bundle instead of a CDN
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() }
 loader.config({ monaco })
 
-const THEME = 'maat'
+// Monaco's own Format Document command (Shift+Alt+F) uses the same formatters as the Format button
+for (const [language, { monaco: id }] of Object.entries(LANGUAGES)) {
+  monaco.languages.registerDocumentFormattingEditProvider(id, {
+    provideDocumentFormattingEdits: async (model) => {
+      try {
+        return [{ range: model.getFullModelRange(), text: await formatCode(language, model.getValue()) }]
+      } catch {
+        return []
+      }
+    },
+  })
+}
+
 const defineTheme = (m) => {
-  m.editor.defineTheme(THEME, {
+  m.editor.defineTheme('maat-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '8a7d5e', fontStyle: 'italic' },
+      { token: 'keyword', foreground: '8a6417' },
+      { token: 'string', foreground: '2b7a51' },
+      { token: 'number', foreground: '2f5cb0' },
+      { token: 'type', foreground: '6e4f12' },
+      { token: 'delimiter', foreground: '6b5f45' },
+    ],
+    colors: {
+      'editor.background': '#fffaf0',
+      'editor.foreground': '#1f1a12',
+      'editorLineNumber.foreground': '#c8b07a',
+      'editorLineNumber.activeForeground': '#8a6417',
+      'editorCursor.foreground': '#8a6417',
+      'editor.selectionBackground': '#d4a94a55',
+      'editor.lineHighlightBackground': '#f6efdf',
+      'editor.lineHighlightBorder': '#00000000',
+      'editorIndentGuide.background1': '#efe4c9',
+      'editorWidget.background': '#fffaf0',
+      'editorWidget.border': '#c8b07a',
+    },
+  })
+  m.editor.defineTheme('maat', {
     base: 'vs-dark',
     inherit: true,
     rules: [
@@ -39,11 +78,12 @@ const defineTheme = (m) => {
 }
 
 export default function MonacoEditor({ value, onChange, language, readOnly = false, label }) {
+  const [theme] = useTheme()
   return (
     <Editor
       value={value}
       language={LANGUAGES[language]?.monaco}
-      theme={THEME}
+      theme={theme === 'light' ? 'maat-light' : 'maat'}
       beforeMount={defineTheme}
       onChange={(next) => onChange?.(next ?? '')}
       loading={<div className="spinner" />}

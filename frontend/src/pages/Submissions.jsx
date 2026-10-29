@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Pagination from '../components/Pagination.jsx'
 import Seo from '../components/Seo.jsx'
 import { EmptyState, ErrorState, Loading } from '../components/States.jsx'
@@ -11,14 +11,24 @@ import { LANGUAGES, STATUS_OPTIONS, isFinal } from '../lib/verdicts.js'
 
 const LIMIT = 20
 
-export default function Submissions() {
+// Your submissions for one problem, opened from the problem page
+export function ProblemSubmissions() {
+  const { slug } = useParams()
+  const { data, error, loading, reload } = useAsync((signal) => api(`/problems/${slug}`, { signal }), [slug])
+
+  if (loading && !data) return <div className="page"><Loading label="Loading the problem" /></div>
+  if (error) return <div className="page"><ErrorState error={error} onRetry={reload} /></div>
+  return <Submissions problem={data.data.problem} />
+}
+
+export default function Submissions({ problem }) {
   const [params, setParams] = useSearchParams()
   const page = Number(params.get('page')) || 1
   const status = params.get('status') || ''
 
   const { data, error, loading, reload } = useAsync(
-    (signal) => api(`/submissions${query({ page, limit: LIMIT, status })}`, { signal }),
-    [page, status],
+    (signal) => api(`/submissions${query({ page, limit: LIMIT, status, problemId: problem?._id })}`, { signal }),
+    [page, status, problem?._id],
   )
 
   const submissions = data?.data.submissions || []
@@ -42,11 +52,22 @@ export default function Submissions() {
 
   return (
     <div className="page">
-      <Seo title="My submissions" description="Your submissions and their verdicts." path="/submissions" noindex />
+      <Seo
+        title={problem ? `My submissions for ${problem.title}` : 'My submissions'}
+        description="Your submissions and their verdicts."
+        path={problem ? `/problems/${problem.slug}/submissions` : '/submissions'}
+        noindex
+      />
       <header className="page-head">
         <div>
-          <h1>My submissions</h1>
-          <p>Every solution you have sent, newest first.</p>
+          <h1>{problem ? `My submissions for ${problem.title}` : 'My submissions'}</h1>
+          <p>
+            {problem ? (
+              <Link to={`/problems/${problem.slug}`}>Back to the problem</Link>
+            ) : (
+              'Every solution you have sent, newest first.'
+            )}
+          </p>
         </div>
       </header>
 
@@ -71,16 +92,16 @@ export default function Submissions() {
 
       {data && submissions.length === 0 && (
         <EmptyState
-          title={status ? 'No submissions with that verdict' : 'Nothing submitted yet'}
+          title={status ? 'No submissions with that verdict' : problem ? 'No submissions for this problem' : 'Nothing submitted yet'}
           action={
             !status && (
-              <Link to="/problems" className="btn">
-                Find a problem
+              <Link to={problem ? `/problems/${problem.slug}` : '/problems'} className="btn">
+                {problem ? 'Solve it' : 'Find a problem'}
               </Link>
             )
           }
         >
-          {status ? 'Try another verdict.' : 'Your submissions show up here as soon as you send one.'}
+          {status ? 'Try another verdict.' : problem ? 'You have not tried this problem yet.' : 'Your submissions show up here as soon as you send one.'}
         </EmptyState>
       )}
 

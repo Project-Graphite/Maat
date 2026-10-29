@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { chmod, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import Contest from './models/contestModel.js';
@@ -12,6 +13,22 @@ import { classify } from './verdict.js';
 const JOBS_DIR = process.env.JOBS_DIR || '/opt/maat-jobs';
 const FINAL = new Set(['ACCEPTED', 'WRONG_ANSWER', 'TLE', 'MLE', 'RUNTIME_ERROR', 'COMPILE_ERROR', 'SYSTEM_ERROR']);
 const VERDICT_CHANNEL = 'verdicts';
+
+const RUN_OUTPUT_CHARS = 16 * 1024;
+const clip = (text) => (text.length > RUN_OUTPUT_CHARS ? `${text.slice(0, RUN_OUTPUT_CHARS)}
+…` : text);
+
+const withJobDir = async (id, language, sourceCode, work) => {
+	const jobDir = path.join(JOBS_DIR, id);
+	try {
+		await mkdir(jobDir, { recursive: true });
+		await chmod(jobDir, 0o777);
+		await writeFile(path.join(jobDir, LANGUAGES[language].sourceFile), sourceCode);
+		return await work(jobDir);
+	} finally {
+		await rm(jobDir, { recursive: true, force: true });
+	}
+};
 
 const runTests = async (submission, problem, testCases, jobDir) => {
 	const { language } = submission;
@@ -72,19 +89,9 @@ export const judgeSubmission = async (submissionId) => {
 	}
 
 	await Submission.updateOne({ _id: submission._id }, { status: 'RUNNING' });
-	const jobDir = path.join(JOBS_DIR, submission.id);
-	let outcome;
-	try {
-		await mkdir(jobDir, { recursive: true });
-		await chmod(jobDir, 0o777);
-		await writeFile(
-			path.join(jobDir, LANGUAGES[submission.language].sourceFile),
-			submission.sourceCode,
-		);
-		outcome = await runTests(submission, problem, testCases, jobDir);
-	} finally {
-		await rm(jobDir, { recursive: true, force: true });
-	}
+	const outcome = await withJobDir(submission.id, submission.language, submission.sourceCode, (jobDir) =>
+		runTests(submission, problem, testCases, jobDir),
+	);
 
 	const judgedAt = new Date();
 	await Submission.updateOne(
@@ -128,4 +135,43 @@ export const failSubmission = async (submissionId) => {
 		{ status: outcome.status, tests: outcome.tests, judgedAt: outcome.judgedAt },
 	);
 	await publishVerdict(submission, outcome);
+};
+
+/**
+ * A trial run on the problem's examples only. Nothing is saved: the result goes back to the
+ * backend as the job's return value. Every example runs, so the user sees all of them.
+ */
+export const runSamples = async ({ problemId, language, sourceCode }) => {
+	const [problem, samples] = await Promise.all([
+		Problem.findById(problemId),
+		TestCase.find({ problemId, isSample: true }).select('+input +expectedOutput').sort('ordinal'),
+	]);
+	if (!problem) throw new Error(`Problem ${problemId} is missing`);
+
+	return withJobDir(`run-${randomBytes(8).toString('hex')}`, language, sourceCode, async (jobDir) => {
+		const compiled = await compile({ language, workDir: jobDir });
+		if (!compiled.ok) return { status: 'COMPILE_ERROR', compileOutput: compiled.output, tests: [] };
+
+		const tests = [];
+		for (const sample of samples) {
+			const result = await run({
+				language,
+				workDir: jobDir,
+				input: sample.input,
+				timeLimitMs: problem.timeLimitMs,
+				memoryLimitMb: problem.memoryLimitMb,
+			});
+			tests.push({
+				ordinal: sample.ordinal,
+				verdict: classify(result, sample.expectedOutput),
+				timeMs: result.timeMs,
+				input: clip(sample.input),
+				expectedOutput: clip(sample.expectedOutput),
+				output: clip(result.stdout),
+				logs: clip(result.stderr),
+			});
+		}
+		const failed = tests.find((test) => test.verdict !== 'ACCEPTED');
+		return { status: failed ? failed.verdict : 'ACCEPTED', tests };
+	});
 };

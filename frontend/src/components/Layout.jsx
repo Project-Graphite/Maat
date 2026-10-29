@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/Auth.jsx'
 import { initial } from '../lib/format.js'
+import { isAdmin } from '../lib/roles.js'
+import { useTheme } from '../lib/theme.js'
 import Glyphs from './Glyphs.jsx'
 import Logo from './Logo.jsx'
 
@@ -22,6 +24,26 @@ export function Avatar({ user, large }) {
     )
   }
   return <span className={`avatar ${large ? 'avatar-large' : ''}`}>{initial(user?.name)}</span>
+}
+
+function ThemeToggle() {
+  const [theme, toggle] = useTheme()
+  const next = theme === 'light' ? 'dark' : 'light'
+  return (
+    <button className="nav-link theme-toggle" onClick={toggle} title={`Switch to ${next} mode`}>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6">
+        {next === 'light' ? (
+          <>
+            <circle cx="12" cy="12" r="4.5" />
+            <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8" />
+          </>
+        ) : (
+          <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
+        )}
+      </svg>
+      <span>{next === 'light' ? 'Light mode' : 'Dark mode'}</span>
+    </button>
+  )
 }
 
 function Header() {
@@ -52,8 +74,9 @@ function Header() {
           <NavLink to="/problems" className="nav-link">Problems</NavLink>
           <NavLink to="/contests" className="nav-link">Contests</NavLink>
           {user && <NavLink to="/submissions" className="nav-link">My submissions</NavLink>}
-          {user?.role === 'admin' && <NavLink to="/admin" className="nav-link">Admin</NavLink>}
+          {isAdmin(user) && <NavLink to="/admin" className="nav-link">Admin</NavLink>}
           <span className="nav-spacer" />
+          <ThemeToggle />
           {user ? (
             <div className="nav-account">
               <NavLink to="/profile" className="nav-link row" style={{ gap: 10 }}>
@@ -113,7 +136,7 @@ export default function Layout() {
         Skip to content
       </a>
       {/* The problem page uses the full width, so it has no room for the columns */}
-      {!pathname.startsWith('/problems/') && <Glyphs variant={pathname === '/' ? 'hero' : 'ambient'} />}
+      {!/^\/problems\/[^/]+\/?$/.test(pathname) && <Glyphs />}
       <Header />
       <main id="main" className="shell-main">
         <Outlet />

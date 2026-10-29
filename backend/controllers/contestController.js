@@ -1,15 +1,20 @@
 import Contest from '../models/contestModel.js';
 import Problem from '../models/problemModel.js';
+import Submission from '../models/submissionModel.js';
+import TestCase from '../models/testCaseModel.js';
 import APIFeatures from '../utils/apiFeatures.js';
 import catchAsync from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
+import { isAdmin } from '../utils/roles.js';
 import isObjectId from '../utils/isObjectId.js';
 import pick from '../utils/pick.js';
 import { withStatus } from '../services/problemStatus.js';
+import { clearLeaderboard } from '../services/leaderboard.js';
 
 const EDITABLE = ['title', 'startsAt', 'endsAt', 'problems'];
 
 const statusOf = (contest, now = new Date()) => {
+    if (!contest.startsAt) return 'unscheduled';
     if (now < contest.startsAt) return 'upcoming';
     if (now >= contest.endsAt) return 'ended';
     return 'running';
@@ -19,6 +24,7 @@ const statusFilter = (status, now = new Date()) => {
     if (status === 'upcoming') return { startsAt: { $gt: now } };
     if (status === 'running') return { startsAt: { $lte: now }, endsAt: { $gt: now } };
     if (status === 'ended') return { endsAt: { $lte: now } };
+    if (status === 'unscheduled') return { startsAt: null };
     return {};
 };
 
@@ -48,7 +54,12 @@ const validateProblems = async (problems) => {
 
 const getAllContests = catchAsync(async (req, res) => {
     const features = new APIFeatures(
-        Contest.find(statusFilter(req.query.status)).select('title startsAt endsAt'),
+        // Unscheduled contests are drafts only admins can see
+        Contest.find(
+            isAdmin(req.user)
+                ? statusFilter(req.query.status)
+                : { $and: [statusFilter(req.query.status), { startsAt: { $ne: null } }] },
+        ).select('title startsAt endsAt'),
         req.query,
         {
             sortable: ['startsAt', 'endsAt', 'title'],
@@ -83,11 +94,14 @@ const getContest = catchAsync(async (req, res, next) => {
               'slug title difficulty',
           )
         : null;
-    if (!contest) return next(new AppError('No contest found with that ID.', 404));
+    const admin = isAdmin(req.user);
+    if (!contest || (!contest.startsAt && !admin)) {
+        return next(new AppError('No contest found with that ID.', 404));
+    }
 
     const data = contest.toObject();
     data.status = statusOf(contest);
-    if (data.status === 'upcoming' && (!req.user || req.user.role !== 'admin')) {
+    if (data.status === 'upcoming' && !admin) {
         data.problems = [];
     } else {
         data.problems = data.problems
@@ -113,7 +127,8 @@ const updateContest = catchAsync(async (req, res, next) => {
     if (!contest) return next(new AppError('No contest found with that ID.', 404));
 
     const data = pick(req.body, ...EDITABLE);
-    if (statusOf(contest) !== 'upcoming' && (data.problems || data.startsAt)) {
+    const started = ['running', 'ended'].includes(statusOf(contest));
+    if (started && (data.problems || data.startsAt !== undefined)) {
         return next(new AppError('Problems and start time cannot change once a contest has started.', 400));
     }
     if (data.problems) await validateProblems(data.problems);
@@ -124,14 +139,27 @@ const updateContest = catchAsync(async (req, res, next) => {
     res.status(200).json({ status: 'success', data: { contest } });
 });
 
+// ?keepProblems=true keeps the contest's problems and their test cases and publishes them in the
+// problem set. Otherwise they are deleted too, unless another contest still uses them.
 const deleteContest = catchAsync(async (req, res, next) => {
     const contest = isObjectId(req.params.id) ? await Contest.findById(req.params.id) : null;
     if (!contest) return next(new AppError('No contest found with that ID.', 404));
-    if (statusOf(contest) !== 'upcoming') {
-        return next(new AppError('Only contests that have not started can be deleted.', 400));
-    }
 
+    const problemIds = contest.problems.map((p) => p.problemId);
+    await Promise.all([Submission.deleteMany({ contestId: contest._id }), clearLeaderboard(contest.id)]);
     await contest.deleteOne();
+
+    if (req.query.keepProblems === 'true') {
+        await Problem.updateMany({ _id: { $in: problemIds } }, { visible: true });
+    } else {
+        const shared = await Contest.distinct('problems.problemId', { 'problems.problemId': { $in: problemIds } });
+        const owned = problemIds.filter((id) => !shared.some((other) => other.equals(id)));
+        await Promise.all([
+            TestCase.deleteMany({ problemId: { $in: owned } }),
+            Submission.deleteMany({ problemId: { $in: owned } }),
+            Problem.deleteMany({ _id: { $in: owned } }),
+        ]);
+    }
 
     res.status(204).send();
 });

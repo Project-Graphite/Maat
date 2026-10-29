@@ -16,9 +16,10 @@ export function UiProvider({ children }) {
   }, [])
 
   const confirm = useCallback(
-    (message, { confirmLabel = 'Delete', title = 'Are you sure?' } = {}) =>
+    // altLabel adds a second choice, which resolves to 'alt'
+    (message, { confirmLabel = 'Delete', title = 'Are you sure?', altLabel } = {}) =>
       new Promise((resolve) => {
-        setConfirmation({ message, confirmLabel, title, resolve })
+        setConfirmation({ message, confirmLabel, title, altLabel, resolve })
         requestAnimationFrame(() => dialog.current?.showModal())
       }),
     [],
@@ -51,6 +52,11 @@ export function UiProvider({ children }) {
               <button className="btn btn-quiet" onClick={() => answer(false)}>
                 Cancel
               </button>
+              {confirmation.altLabel && (
+                <button className="btn btn-danger" onClick={() => answer('alt')}>
+                  {confirmation.altLabel}
+                </button>
+              )}
               <button className="btn btn-danger" onClick={() => answer(true)}>
                 {confirmation.confirmLabel}
               </button>

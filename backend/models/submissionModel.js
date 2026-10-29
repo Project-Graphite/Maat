@@ -58,6 +58,10 @@ const submissionSchema = new mongoose.Schema({
         default: Date.now,
     },
     judgedAt: Date,
+    public: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 submissionSchema.index({ userId: 1, submittedAt: -1 });

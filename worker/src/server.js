@@ -14,7 +14,7 @@ process.on('uncaughtException', (err) => {
 	process.exit(1);
 });
 
-import { failSubmission, judgeSubmission } from './judge.js';
+import { failSubmission, judgeSubmission, runSamples } from './judge.js';
 import { measureBaseline, removeStaleSandboxes } from './sandbox.js';
 import { createRedis } from './services/redis.js';
 
@@ -31,14 +31,16 @@ console.log(`Sandbox startup overhead: ${baseline}ms`);
 
 const concurrency = Number(process.env.WORKER_CONCURRENCY) || 2;
 
-const worker = new Worker(JUDGE_QUEUE, (job) => judgeSubmission(job.data.submissionId), {
+const handle = (job) => (job.name === 'run' ? runSamples(job.data) : judgeSubmission(job.data.submissionId));
+
+const worker = new Worker(JUDGE_QUEUE, handle, {
 	connection: createRedis({ maxRetriesPerRequest: null }),
 	concurrency,
 });
 
 worker.on('completed', (job) => console.log(`Judged submission ${job.data.submissionId}`));
 worker.on('failed', async (job, err) => {
-	if (!job) return;
+	if (!job || job.name === 'run') return;
 	console.log(`Judging ${job.data.submissionId} failed (attempt ${job.attemptsMade}):`, err.message);
 
 	try {

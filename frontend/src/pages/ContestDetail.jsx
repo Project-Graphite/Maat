@@ -125,7 +125,7 @@ export default function ContestDetail() {
   const ends = new Date(contest.endsAt).getTime()
 
   // The status from the server is only right at load time, so the clock decides after that
-  const status = now < starts ? 'upcoming' : now < ends ? 'running' : 'ended'
+  const status = !contest.startsAt ? 'unscheduled' : now < starts ? 'upcoming' : now < ends ? 'running' : 'ended'
   const live = { ...contest, status }
 
   return (
@@ -138,9 +138,7 @@ export default function ContestDetail() {
       <header className="page-head">
         <div>
           <h1>{contest.title}</h1>
-          <p>
-            {formatDateTime(contest.startsAt)} to {formatDateTime(contest.endsAt)}
-          </p>
+          <p>{contest.startsAt ? `${formatDateTime(contest.startsAt)} to ${formatDateTime(contest.endsAt)}` : 'Not scheduled yet'}</p>
         </div>
         <div className="stack-sm" style={{ alignItems: 'flex-end' }}>
           <ContestStatus status={status} />

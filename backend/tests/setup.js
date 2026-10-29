@@ -4,12 +4,13 @@ import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 
 // The API tests run without Redis: fake the connection and the judge queue
 vi.mock('../services/redis.js', () => ({
-	redis: { status: 'ready', del: vi.fn(), zrem: vi.fn() },
+	redis: { status: 'ready', del: vi.fn(), zrem: vi.fn(), zrange: vi.fn().mockResolvedValue([]) },
 	createRedis: vi.fn(() => ({ on: vi.fn() })),
 }));
 vi.mock('../services/queue.js', () => ({
 	JUDGE_QUEUE: 'judge',
 	judgeQueue: { add: vi.fn().mockResolvedValue({}), getWorkersCount: vi.fn().mockResolvedValue(1) },
+	judgeEvents: {},
 }));
 
 let mongod;

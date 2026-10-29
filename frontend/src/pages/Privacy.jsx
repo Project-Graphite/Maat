@@ -15,7 +15,7 @@ export default function Privacy() {
       />
       <article className="legal">
         <h1>Privacy policy</h1>
-        <p className="muted">Last updated 27 October 2026</p>
+        <p className="muted">Last updated 28 October 2026</p>
 
         <p style={{ marginTop: 24 }}>
           This page explains what we keep about you when you use Ma’at, why, and what you can do about it. We
@@ -47,6 +47,10 @@ export default function Privacy() {
         <ul>
           <li>Everyone can see your name and score on the standings of contests you join.</li>
           <li>Only you can see your code. Our administrators can open it to fix problems or check for cheating.</li>
+          <li>
+            If you choose to share an accepted solution, everyone can read it, with your name, on the problem’s
+            solutions page. You can hide it again at any time from the submission’s page.
+          </li>
           <li>Your email address is never shown to other users.</li>
         </ul>
 
@@ -79,15 +83,7 @@ export default function Privacy() {
         <h2>Your rights</h2>
         <p>
           You can ask us for a copy of your data, ask us to correct it, or ask us to delete it. You can change your
-          name, photo and password yourself on your account page. For anything else, write to <Contact />. If you
-          live in the European Economic Area or the United Kingdom, you can also complain to your local data
-          protection authority.
-        </p>
-
-        <h2>Children</h2>
-        <p>
-          Ma’at is not meant for children under 13. If you believe a child has created an account, write to us and
-          we will delete it.
+          name, photo and password yourself on your account page. For anything else, write to <Contact />.
         </p>
 
         <h2>Changes to this policy</h2>

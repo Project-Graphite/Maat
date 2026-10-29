@@ -13,7 +13,11 @@ The hard part of a judge is running code written by strangers without trusting i
 - See which problems you have solved or tried, in every problem list
 - Upload a profile picture, which is re-encoded before it is stored
 - Delete your account. It is kept for 30 days in case you change your mind, then removed with all its data
-- Manage problems and hidden test cases from an admin area
+- Run code on a problem's examples before submitting, and format it with one click
+- Share accepted solutions, and read other people's once a problem is no longer in a running contest
+- Follow your progress on your profile: problems solved by difficulty and your latest submissions
+- Switch between dark and light mode
+- Manage problems, hidden test cases, contests and users from an admin area. A super admin also manages the admins
 
 ## How it works
 
@@ -132,8 +136,8 @@ You need Docker. Node.js 22 is only needed to run the tests or to work on one pa
 1. Copy `.env.example` to `.env` and fill in the values.
 2. Build the two sandbox images: `docker compose --profile build build sandbox-cpp sandbox-python`
 3. Start everything: `docker compose up -d --build`
-4. Add the example problems and an admin account:
-   `docker compose exec -e SEED_ADMIN_EMAIL=you@example.com -e SEED_ADMIN_PASSWORD=a-long-password backend node seed.js`
+4. Add the example problems, a practice contest and the super admin account:
+   `docker compose exec -e SEED_ADMIN_EMAIL=you@example.com -e SEED_ADMIN_PASSWORD=a-long-password backend node scripts/seed.js`
 5. Open http://localhost:8080.
 
 ### Resource limits

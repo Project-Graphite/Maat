@@ -1,4 +1,4 @@
-import { Queue } from 'bullmq';
+import { Queue, QueueEvents } from 'bullmq';
 import { createRedis } from './redis.js';
 
 export const JUDGE_QUEUE = 'judge';
@@ -10,3 +10,9 @@ export const judgeQueue = new Queue(JUDGE_QUEUE, {
 });
 
 judgeQueue.on('error', (err) => console.log('Judge queue error:', err.message));
+
+// Lets a request wait for a trial run to finish
+export const judgeEvents = new QueueEvents(JUDGE_QUEUE, {
+    connection: createRedis({ maxRetriesPerRequest: null }),
+});
+judgeEvents.on('error', (err) => console.log('Judge events error:', err.message));

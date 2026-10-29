@@ -64,6 +64,13 @@ export const submission = limiter({
     message: 'Too many submissions. Please wait a minute.',
 });
 
+export const run = limiter({
+    windowMs: MINUTE,
+    limit: 20,
+    keyGenerator: byAccount,
+    message: 'Too many runs. Please wait a minute.',
+});
+
 export const avatar = limiter({
     windowMs: HOUR,
     limit: 20,

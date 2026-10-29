@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api.js'
+import { clearDrafts } from '../lib/storage.js'
 import { resetSocket } from '../lib/socket.js'
 
 const AuthContext = createContext(null)
@@ -37,6 +38,7 @@ export function AuthProvider({ children }) {
       logout: async () => {
         await api('/auth/logout', { method: 'POST' }).catch(() => {})
         resetSocket()
+        clearDrafts()
         setUser(null)
       },
     }),

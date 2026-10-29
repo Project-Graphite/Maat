@@ -19,11 +19,12 @@ The web app for Ma'at. It is where people read problems, write and submit soluti
 | Home | See what Ma'at is and how a verdict is reached |
 | Login, sign up, forgot and reset password | Create an account or sign in, and reset a forgotten password |
 | Problems | Search and filter problems by difficulty |
-| Problem | Read the statement on the left, write code on the right, pick C++17 or Python 3 and submit |
-| My submissions | See your history and open any submission to review its code and verdict |
+| Problem | Read the statement on the left, write code on the right in C++17 or Python 3, format it (Alt+Shift+F), run it on the examples, and submit |
+| Solutions | Read the accepted solutions people chose to share, once no running contest uses the problem |
+| My submissions | See your history, or just one problem's, and open any submission to review it and share or hide it |
 | Contests | See upcoming and running contests, a countdown, and live standings |
-| Profile | Change your name, upload a profile picture, change your password and delete your account |
-| Admin | Create problems, manage test cases, schedule contests and change user roles |
+| Profile | Your progress by difficulty and latest submissions, then your name, profile picture, password and account deletion |
+| Admin | Create problems, manage test cases, schedule or start contests, and manage users |
 | Privacy policy and terms of use | Plain-language legal pages, linked from the footer and the sign-up form |
 
 ## The verdict panel

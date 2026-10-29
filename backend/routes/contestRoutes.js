@@ -11,7 +11,7 @@ import { getStandings } from '../controllers/leaderboardController.js';
 
 const router = express.Router();
 
-router.get('/', getAllContests);
+router.get('/', identify, getAllContests);
 
 router.get('/:id', identify, getContest);
 router.get('/:id/standings', identify, getStandings);

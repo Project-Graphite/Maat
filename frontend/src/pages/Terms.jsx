@@ -12,7 +12,7 @@ export default function Terms() {
       />
       <article className="legal">
         <h1>Terms of use</h1>
-        <p className="muted">Last updated 27 October 2026</p>
+        <p className="muted">Last updated 28 October 2026</p>
 
         <p style={{ marginTop: 24 }}>
           Welcome to Ma’at. By creating an account or using the site, you agree to these terms. Please read them,
@@ -46,7 +46,9 @@ export default function Terms() {
         <h2>Your code</h2>
         <p>
           The code you write is yours. By submitting it, you allow us to store it, run it to judge it, and show it to
-          you and our administrators. We will not publish it.
+          you and our administrators. We only publish it if you choose to share an accepted solution: everyone can
+          then read it, with your name, on the problem’s solutions page until you hide it again. Solutions to a
+          contest’s problems are only shown once the contest has ended.
         </p>
 
         <h2>Results</h2>

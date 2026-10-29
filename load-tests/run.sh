@@ -18,20 +18,24 @@ export MSYS_NO_PATHCONV=1         # Git Bash on Windows: leave container paths a
 MONGO_PASSWORD="$(grep -E '^MONGO_PASSWORD' .env | cut -d= -f2- | tr -d ' \r')"
 SCRIPTS="$(pwd -W 2>/dev/null || pwd)/load-tests"
 mongo() { docker compose exec -T mongo mongosh -u maat -p "$MONGO_PASSWORD" --authenticationDatabase admin maat --quiet "$@"; }
-k6() { docker run --rm --add-host=host.docker.internal:host-gateway -v "$SCRIPTS:/scripts:ro" \
+mkdir -p load-tests/reports
+# Live graphs at http://localhost:5665 during each run, saved to load-tests/reports/$REPORT.html at the end
+k6() { docker run --rm --add-host=host.docker.internal:host-gateway -p 5665:5665 \
+    -v "$SCRIPTS:/scripts:ro" -v "$SCRIPTS/reports:/reports" \
+    -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT="/reports/$REPORT.html" \
     -e BASE_URL=http://host.docker.internal:8080 -e LOAD_TEST_PASSWORD -e USERS -e RATE -e DURATION \
     grafana/k6:0.57.0 run --quiet "$@" | grep K6_RESULT | cut -d' ' -f2-; }
 
 echo "Starting the stack with the load test settings"
 docker compose up -d --build backend frontend worker >/dev/null
 sleep 10
-docker compose exec -T -e SEED_LOAD_USERS="$USERS" -e LOAD_TEST_PASSWORD backend node seed.js >/dev/null
+docker compose exec -T -e SEED_LOAD_USERS="$USERS" -e LOAD_TEST_PASSWORD backend node scripts/seed.js >/dev/null
 
 for n in $WORKERS; do
     docker compose up -d --scale worker="$n" --no-recreate worker >/dev/null
     sleep 15                      # each worker measures its startup cost before taking jobs
     since="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
-    accept="$(k6 /scripts/submit.js)"
+    accept="$(REPORT="submit-${n}-workers" k6 /scripts/submit.js)"
 
     # Wait until every submission from this run has a verdict
     for ((t = 0; t < DRAIN_TIMEOUT; t += 5)); do
@@ -43,7 +47,7 @@ for n in $WORKERS; do
     echo "workers=$n accept=$accept judged=$judged"
 done
 
-echo "reading load: $(RATE="${BROWSE_RATE:-100}" k6 /scripts/browse.js)"
+echo "reading load: $(REPORT=browse RATE="${BROWSE_RATE:-100}" k6 /scripts/browse.js)"
 
 docker compose up -d --scale worker=1 worker >/dev/null
 mongo --eval "$(cat load-tests/cleanup.js)"

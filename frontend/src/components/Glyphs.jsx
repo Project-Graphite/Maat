@@ -27,13 +27,13 @@ const buildColumns = () => {
 
 /**
  * Columns of hieroglyphs drifting up and down behind the page, like the carved
- * stelae of a temple wall. `hero` fills the width, `ambient` keeps to the outer columns.
+ * stelae of a temple wall. The same on every page.
  */
-export default function Glyphs({ variant = 'ambient' }) {
+export default function Glyphs() {
   const columns = useMemo(buildColumns, [])
 
   return (
-    <div className={`glyphs glyphs-${variant}`} aria-hidden="true">
+    <div className="glyphs" aria-hidden="true">
       {columns.map((column) => (
         <div key={column.index} className="glyph-column" data-dir={column.direction}>
           <div className="glyph-track">{column.text}</div>

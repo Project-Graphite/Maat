@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import User from '../models/userModel.js';
 import catchAsync from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
+import { isAdmin } from '../utils/roles.js';
 import sendEmail from '../utils/email.js';
 import { allowedOrigins } from '../utils/sameOrigin.js';
 
@@ -126,9 +127,11 @@ const identify = catchAsync(async (req, res, next) => {
     next();
 });
 
+// restrictTo('admin') also lets super admins through
 const restrictTo = (...roles) => {
     return (req, res, next) => {
-        if (!req.user || !roles.includes(req.user.role)) {
+        const role = req.user?.role;
+        if (!roles.includes(role) && !(roles.includes('admin') && isAdmin(req.user))) {
             return next(
                 new AppError(
                     'You do not have permission to perform this action',

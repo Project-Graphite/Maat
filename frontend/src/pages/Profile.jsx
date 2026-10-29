@@ -1,13 +1,142 @@
 import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Avatar } from '../components/Layout.jsx'
 import Seo from '../components/Seo.jsx'
+import { ErrorState, Loading } from '../components/States.jsx'
+import VerdictBadge, { Difficulty } from '../components/VerdictBadge.jsx'
 import { useAuth } from '../context/Auth.jsx'
 import { useUi } from '../context/Ui.jsx'
 import { api } from '../lib/api.js'
+import { formatDateTime } from '../lib/format.js'
+import { useAsync } from '../lib/hooks.js'
+import { ROLE_LABELS, isAdmin } from '../lib/roles.js'
+import { LANGUAGES } from '../lib/verdicts.js'
 
 const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const AVATAR_MAX = 2 * 1024 * 1024
+
+const memberSince = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
+
+function Meter({ value, total, label }) {
+  return (
+    <div className="meter" role="img" aria-label={`${label}: ${value} of ${total}`}>
+      <span style={{ width: total ? `${(100 * value) / total}%` : 0 }} />
+    </div>
+  )
+}
+
+function Overview() {
+  const { user } = useAuth()
+  const { data, error, loading, reload } = useAsync((signal) => api('/users/me/stats', { signal }), [])
+
+  if (loading && !data) return <Loading label="Loading your progress" />
+  if (error) return <ErrorState error={error} onRetry={reload} />
+
+  const stats = data.data.stats
+  const rate = stats.submissions ? Math.round((100 * stats.accepted) / stats.submissions) : 0
+  const language = stats.languages[0] && LANGUAGES[stats.languages[0].language]?.label
+
+  return (
+    <>
+      <section className="panel profile-hero">
+        <Avatar user={user} large />
+        <div>
+          <h2 className="profile-name">{user.name}</h2>
+          <p className="muted">
+            Member since {memberSince.format(new Date(stats.memberSince))}
+            {isAdmin(user) && ` · ${ROLE_LABELS[user.role]}`}
+          </p>
+        </div>
+      </section>
+
+      <div className="profile-grid">
+        <section className="panel" aria-labelledby="progress-title">
+          <h2 id="progress-title" className="panel-title">Progress</h2>
+          <p className="stat-big">
+            <strong>{stats.solved}</strong> of {stats.total} problems solved
+          </p>
+          <Meter value={stats.solved} total={stats.total} label="Problems solved" />
+          <ul className="stat-levels">
+            {Object.entries(stats.progress).map(([level, { solved, total }]) => (
+              <li key={level}>
+                <Difficulty level={level} />
+                <Meter value={solved} total={total} label={`${level} problems solved`} />
+                <span className="muted">
+                  {solved} / {total}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="panel" aria-labelledby="numbers-title">
+          <h2 id="numbers-title" className="panel-title">In numbers</h2>
+          <dl className="stat-grid">
+            <div>
+              <dt>Submissions</dt>
+              <dd>{stats.submissions}</dd>
+            </div>
+            <div>
+              <dt>Accepted</dt>
+              <dd>{rate}%</dd>
+            </div>
+            <div>
+              <dt>Tried, not solved</dt>
+              <dd>{stats.tried}</dd>
+            </div>
+            <div>
+              <dt>Main language</dt>
+              <dd>{language || '—'}</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+
+      <section className="panel" aria-labelledby="recent-title">
+        <div className="row" style={{ justifyContent: 'space-between', marginBottom: 16 }}>
+          <h2 id="recent-title" className="panel-title" style={{ margin: 0 }}>
+            Latest submissions
+          </h2>
+          {stats.recent.length > 0 && <Link to="/submissions">All submissions</Link>}
+        </div>
+        {stats.recent.length === 0 ? (
+          <p className="muted">
+            Nothing yet. <Link to="/problems">Pick a problem</Link> to start.
+          </p>
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th scope="col">Problem</th>
+                  <th scope="col">Verdict</th>
+                  <th scope="col">Language</th>
+                  <th scope="col">Sent</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.recent.map((submission) => (
+                  <tr key={submission._id}>
+                    <td>
+                      {submission.problemId ? <Link to={`/problems/${submission.problemId.slug}`}>{submission.problemId.title}</Link> : 'Deleted problem'}
+                    </td>
+                    <td>
+                      <Link to={`/submissions/${submission._id}`}>
+                        <VerdictBadge status={submission.status} />
+                      </Link>
+                    </td>
+                    <td>{LANGUAGES[submission.language]?.label}</td>
+                    <td className="muted">{formatDateTime(submission.submittedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </>
+  )
+}
 
 function Details() {
   const { user, setUser } = useAuth()
@@ -209,16 +338,19 @@ function DeleteAccount() {
 }
 
 export default function Profile() {
-  const { user } = useAuth()
   return (
     <div className="page">
-      <Seo title="Your account" description="Manage your Ma’at account." path="/profile" noindex />
+      <Seo title="Your profile" description="Your progress and account on Ma’at." path="/profile" noindex />
       <header className="page-head">
         <div>
-          <h1>Your account</h1>
-          <p>{user.role === 'admin' ? 'You are an administrator.' : 'Update how you appear and keep your account safe.'}</p>
+          <h1>Your profile</h1>
+          <p>Your progress so far, and your account settings.</p>
         </div>
       </header>
+      <div className="stack" style={{ gap: 32 }}>
+        <Overview />
+      </div>
+      <h2 className="section-title">Settings</h2>
       <div className="profile-grid">
         <div className="stack">
           <Details />

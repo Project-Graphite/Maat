@@ -43,6 +43,8 @@ Settings can be changed through environment variables:
 | `BROWSE_RATE` | `100` | Requests per second in the reading test |
 | `SANDBOX_CPUSET` | `0-3` | Cores the sandboxes share |
 
+While a test runs, live graphs of request rate, response times and errors are at <http://localhost:5665>. Each run also saves them as a single HTML page in `load-tests/reports/` (`submit-1-workers.html`, …, `browse.html`), which opens in any browser.
+
 When it finishes, start the stack again with your normal settings: `docker compose up -d`.
 
 ## Files

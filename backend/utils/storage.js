@@ -20,14 +20,7 @@ const client = new S3Client({
 const Bucket = process.env.S3_BUCKET || 'maat';
 
 export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
-export const AVATAR_TYPES = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/webp': 'webp',
-};
-
-const avatarKey = (userId, ext) => `avatars/${userId}.${ext}`;
-const allAvatarKeys = (userId) => Object.values(AVATAR_TYPES).map((ext) => avatarKey(userId, ext));
+export const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const remove = (keys) =>
     client.send(new DeleteObjectsCommand({ Bucket, Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true } }));
@@ -35,14 +28,13 @@ const remove = (keys) =>
 export const checkConnection = () => client.send(new HeadBucketCommand({ Bucket }));
 
 export const putAvatar = async (userId, buffer) => {
-    const { buffer: body, ext, contentType } = await processAvatar(buffer);
-    const key = avatarKey(userId, ext);
+    const { buffer: body, contentType } = await processAvatar(buffer);
+    const key = `avatars/${userId}-${Date.now().toString(36)}.webp`;
     await client.send(new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType }));
-    await remove(allAvatarKeys(userId).filter((k) => k !== key));
     return key;
 };
 
-export const removeAvatar = (userId) => remove(allAvatarKeys(userId));
+export const removeAvatar = (key) => remove([key]);
 
 export const sendAvatar = async (key, res) => {
     let object;

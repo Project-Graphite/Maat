@@ -35,3 +35,8 @@ export const getStandings = async (contestId, limit = 50) => {
 
 export const removeFromLeaderboard = (contestId, userId) =>
     Promise.all([redis.del(userKey(contestId, userId)), redis.zrem(boardKey(contestId), String(userId))]);
+
+export const clearLeaderboard = async (contestId) => {
+    const userIds = await redis.zrange(boardKey(contestId), 0, -1);
+    await redis.del(boardKey(contestId), ...userIds.map((userId) => userKey(contestId, userId)));
+};

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, api, query } from './api.js'
 import { countdown, safeNext } from './format.js'
 import { isFinal } from './verdicts.js'
+import { clearDrafts } from './storage.js'
 
 describe('safeNext', () => {
   it('keeps paths on this site', () => {
@@ -66,5 +67,19 @@ describe('api', () => {
   it('returns null for an empty 204 response', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
     expect(await api('/x', { method: 'DELETE' })).toBeNull()
+  })
+})
+
+describe('clearDrafts', () => {
+  it('removes every saved draft and nothing else', () => {
+    localStorage.setItem('maat:draft:u1:sum:cpp17', 'mine')
+    localStorage.setItem('maat:draft:guest:sum:python3', 'guest')
+    localStorage.setItem('maat:theme', 'light')
+
+    clearDrafts()
+
+    expect(localStorage.getItem('maat:draft:u1:sum:cpp17')).toBeNull()
+    expect(localStorage.getItem('maat:draft:guest:sum:python3')).toBeNull()
+    expect(localStorage.getItem('maat:theme')).toBe('light')
   })
 })

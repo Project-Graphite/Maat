@@ -18,6 +18,9 @@ import Terms from './pages/Terms.jsx'
 const ProblemDetail = lazy(() => import('./pages/ProblemDetail.jsx'))
 const ContestDetail = lazy(() => import('./pages/ContestDetail.jsx'))
 const Submissions = lazy(() => import('./pages/Submissions.jsx'))
+const ProblemSubmissions = lazy(() => import('./pages/Submissions.jsx').then((m) => ({ default: m.ProblemSubmissions })))
+const Solutions = lazy(() => import('./pages/Solutions.jsx'))
+const SolutionDetail = lazy(() => import('./pages/SolutionDetail.jsx'))
 const SubmissionDetail = lazy(() => import('./pages/SubmissionDetail.jsx'))
 const Profile = lazy(() => import('./pages/Profile.jsx'))
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout.jsx'))
@@ -38,6 +41,8 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="problems" element={<Problems />} />
           <Route path="problems/:slug" element={<ProblemDetail />} />
+          <Route path="problems/:slug/solutions" element={<Solutions />} />
+          <Route path="solutions/:id" element={<SolutionDetail />} />
           <Route path="contests" element={<Contests />} />
           <Route path="contests/:id" element={<ContestDetail />} />
           <Route path="login" element={<Login />} />
@@ -47,6 +52,7 @@ export default function App() {
           <Route path="privacy" element={<Privacy />} />
           <Route path="terms" element={<Terms />} />
 
+          <Route path="problems/:slug/submissions" element={protectedPage(<ProblemSubmissions />)} />
           <Route path="submissions" element={protectedPage(<Submissions />)} />
           <Route path="submissions/:id" element={protectedPage(<SubmissionDetail />)} />
           <Route path="profile" element={protectedPage(<Profile />)} />

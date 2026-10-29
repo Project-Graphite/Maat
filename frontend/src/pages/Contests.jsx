@@ -16,7 +16,7 @@ const TABS = [
 
 export const ContestStatus = ({ status }) => (
   <span className={status === 'running' ? 'tag tag-gold' : 'tag'}>
-    {status === 'running' ? 'Running now' : status === 'upcoming' ? 'Upcoming' : 'Ended'}
+    {{ running: 'Running now', upcoming: 'Upcoming', ended: 'Ended', unscheduled: 'Not scheduled' }[status]}
   </span>
 )
 
@@ -83,7 +83,7 @@ export default function Contests() {
                     <Link to={`/contests/${contest._id}`}>{contest.title}</Link>
                   </h3>
                   <p className="muted small">
-                    {formatDateTime(contest.startsAt)} to {formatDateTime(contest.endsAt)}
+                    {contest.startsAt ? `${formatDateTime(contest.startsAt)} to ${formatDateTime(contest.endsAt)}` : 'Not scheduled yet'}
                   </p>
                 </div>
                 <ContestStatus status={contest.status} />

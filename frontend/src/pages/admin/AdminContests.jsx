@@ -21,13 +21,13 @@ export default function AdminContests() {
   const contests = data?.data.contests || []
 
   const remove = async (contest) => {
-    const ok = await confirm(`“${contest.title}” will be deleted. Submissions stay, but the standings are gone.`, {
-      confirmLabel: 'Delete contest',
-      title: 'Delete this contest?',
-    })
-    if (!ok) return
+    const choice = await confirm(
+      `“${contest.title}” and its submissions and standings will be deleted. You can keep its problems and their test cases, which then appear in the problem set, or delete them too.`,
+      { title: 'Delete this contest?', altLabel: 'Keep problems', confirmLabel: 'Delete all' },
+    )
+    if (!choice) return
     try {
-      await api(`/contests/${contest._id}`, { method: 'DELETE' })
+      await api(`/contests/${contest._id}${choice === 'alt' ? '?keepProblems=true' : ''}`, { method: 'DELETE' })
       toast('Contest deleted.', 'success')
       reload()
     } catch (err) {
@@ -51,7 +51,7 @@ export default function AdminContests() {
 
       {loading && !data && <Loading />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && contests.length === 0 && <EmptyState title="No contests yet">Schedule the first one with the button above.</EmptyState>}
+      {data && contests.length === 0 && <EmptyState title="No contests yet">Create the first one with the button above.</EmptyState>}
 
       {contests.length > 0 && (
         <>
@@ -74,7 +74,7 @@ export default function AdminContests() {
                     <td>
                       <Link to={`/admin/contests/${contest._id}`}>{contest.title}</Link>
                     </td>
-                    <td>{formatDateTime(contest.startsAt)}</td>
+                    <td>{contest.startsAt ? formatDateTime(contest.startsAt) : 'Not scheduled'}</td>
                     <td>{formatDateTime(contest.endsAt)}</td>
                     <td>
                       <ContestStatus status={contest.status} />

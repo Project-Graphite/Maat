@@ -7,6 +7,7 @@ import { createRedis } from '../services/redis.js';
 import { allowedOrigins } from '../utils/sameOrigin.js';
 import isObjectId from '../utils/isObjectId.js';
 import AppError from '../utils/appError.js';
+import { isAdmin } from '../utils/roles.js';
 
 const VERDICT_CHANNEL = 'verdicts';
 const FINAL_STATUSES = ['ACCEPTED', 'WRONG_ANSWER', 'TLE', 'MLE', 'RUNTIME_ERROR', 'COMPILE_ERROR', 'SYSTEM_ERROR'];
@@ -64,7 +65,7 @@ export const initSockets = (httpServer) => {
                     'userId contestId problemId status compileOutput tests judgedAt',
                 );
                 const allowed =
-                    submission && (user.role === 'admin' || submission.userId.equals(user._id));
+                    submission && (isAdmin(user) || submission.userId.equals(user._id));
                 if (!allowed) throw new AppError('No submission found with that ID.', 404);
                 joinRoom(submissionRoom(id));
 
@@ -96,7 +97,7 @@ export const initSockets = (httpServer) => {
 
                 const contest = await Contest.findById(id).select('startsAt');
                 if (!contest) throw new AppError('No contest found with that ID.', 404);
-                if (contest.startsAt > new Date() && user.role !== 'admin') {
+                if ((!contest.startsAt || contest.startsAt > new Date()) && !isAdmin(user)) {
                     throw new AppError('This contest has not started yet.', 403);
                 }
                 joinRoom(contestRoom(id));

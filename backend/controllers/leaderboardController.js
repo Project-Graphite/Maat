@@ -2,6 +2,7 @@ import Contest from '../models/contestModel.js';
 import User from '../models/userModel.js';
 import catchAsync from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
+import { isAdmin } from '../utils/roles.js';
 import isObjectId from '../utils/isObjectId.js';
 import { getStandings as readStandings } from '../services/leaderboard.js';
 
@@ -14,7 +15,7 @@ const getStandings = catchAsync(async (req, res, next) => {
         : null;
     if (!contest) return next(new AppError('No contest found with that ID.', 404));
 
-    if (contest.startsAt > new Date() && (!req.user || req.user.role !== 'admin')) {
+    if ((!contest.startsAt || contest.startsAt > new Date()) && !isAdmin(req.user)) {
         return next(new AppError('This contest has not started yet.', 403));
     }
 
