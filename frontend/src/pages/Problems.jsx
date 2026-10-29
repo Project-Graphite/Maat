@@ -21,7 +21,7 @@ export default function Problems() {
   const [params, setParams] = useSearchParams()
   const page = Number(params.get('page')) || 1
   const difficulty = params.get('difficulty') || ''
-  const sort = params.get('sort') || 'createdAt'
+  const sort = params.get('sort') || '-createdAt'
   const urlSearch = params.get('search') || ''
 
   const [search, setSearch] = useState(urlSearch)
@@ -93,8 +93,8 @@ export default function Problems() {
             Sort by
           </label>
           <select id="sort" className="select" value={sort} onChange={(e) => update({ sort: e.target.value, page: '' })}>
-            <option value="createdAt">Oldest first</option>
             <option value="-createdAt">Newest first</option>
+            <option value="createdAt">Oldest first</option>
             <option value="title">Title, A to Z</option>
             <option value="difficulty">Difficulty</option>
           </select>
