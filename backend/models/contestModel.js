@@ -33,6 +33,7 @@ const contestSchema = new mongoose.Schema({
             },
         },
     ],
+    problemsPublished: { type: Boolean, default: false, select: false },
 });
 
 contestSchema.pre('validate', function (next) {

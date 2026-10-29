@@ -17,6 +17,7 @@ import app from './app.js';
 import * as storage from './utils/storage.js';
 import { initSockets } from './sockets/index.js';
 import { scheduleAccountCleanup } from './services/accountCleanup.js';
+import { scheduleContestPublishing } from './services/contestPublishing.js';
 
 const DB = process.env.DATABASE_LOCAL;
 mongoose
@@ -24,6 +25,7 @@ mongoose
 	.then((con) => {
 		console.log('DB connection successful!');
 		scheduleAccountCleanup();
+		scheduleContestPublishing();
 	})
 	.catch((err) => {
 		console.log('DB connection error:', err);

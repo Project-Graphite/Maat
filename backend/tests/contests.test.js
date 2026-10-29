@@ -5,6 +5,7 @@ import Contest from '../models/contestModel.js';
 import Problem from '../models/problemModel.js';
 import Submission from '../models/submissionModel.js';
 import TestCase from '../models/testCaseModel.js';
+import { publishEndedContests } from '../services/contestPublishing.js';
 import { redis } from '../services/redis.js';
 import { createAdmin, createContest, createProblem, createTestCase, createUser } from './helpers.js';
 
@@ -129,5 +130,48 @@ describe('deleting a contest', () => {
 		const { agent } = await createUser();
 
 		expect((await agent.delete(`/api/v1/contests/${contest.id}`)).status).toBe(403);
+	});
+});
+
+describe('when a contest ends', () => {
+	const MINUTE = 60 * 1000;
+	const ended = { startsIn: -120 * MINUTE, endsIn: -MINUTE };
+
+	it('adds its problems to the problem set, once', async () => {
+		const problem = await createProblem({ visible: false });
+		await createContest(problem._id, ended);
+
+		expect(await publishEndedContests()).toBe(1);
+		expect((await Problem.findById(problem._id)).visible).toBe(true);
+
+		await Problem.updateOne({ _id: problem._id }, { visible: false });
+		expect(await publishEndedContests()).toBe(0);
+		expect((await Problem.findById(problem._id)).visible).toBe(false);
+	});
+
+	it('leaves the problems of running, upcoming and unscheduled contests hidden', async () => {
+		const running = await createProblem({ title: 'Running', visible: false });
+		const upcoming = await createProblem({ title: 'Upcoming', visible: false });
+		const unscheduled = await createProblem({ title: 'Unscheduled', visible: false });
+		await createContest(running._id);
+		await createContest(upcoming._id, { startsIn: MINUTE, endsIn: 60 * MINUTE });
+		await draft(unscheduled._id);
+
+		expect(await publishEndedContests()).toBe(0);
+		expect(await Problem.countDocuments({ visible: true })).toBe(0);
+	});
+
+	it('waits for every contest that uses the problem to end', async () => {
+		const problem = await createProblem({ visible: false });
+		await createContest(problem._id, ended);
+		const later = await createContest(problem._id, { startsIn: MINUTE, endsIn: 60 * MINUTE });
+
+		await publishEndedContests();
+		expect((await Problem.findById(problem._id)).visible).toBe(false);
+
+		later.set({ startsAt: new Date(Date.now() - 120 * MINUTE), endsAt: new Date(Date.now() - MINUTE) });
+		await later.save();
+		await publishEndedContests();
+		expect((await Problem.findById(problem._id)).visible).toBe(true);
 	});
 });

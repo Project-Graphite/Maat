@@ -19,7 +19,7 @@ backend/
 ├── controllers/   Request handlers and the global error handler
 ├── models/        Mongoose schemas: User, Problem, TestCase, Submission, Contest
 ├── routes/        Route definitions
-├── services/      Redis, the judging queue, contest standings, problem status, account cleanup
+├── services/      Redis, the judging queue, contest standings, problem status, account cleanup, publishing contest problems
 ├── sockets/       Socket.IO: login check, rooms, verdict forwarding
 ├── utils/         Shared helpers
 ├── scripts/       seed.js: example problems, a practice contest and the super admin account
@@ -98,7 +98,7 @@ Submitting returns `202 Accepted` with the submission id straight away. The verd
 
 **Roles.** Admins manage problems and contests and can delete regular users. Only the super admin, created by the seed script, changes roles: it promotes users to admin, and demotes or deletes admins. Nobody can change or delete a super admin through the API, and the role cannot be handed out.
 
-**Contests can wait.** A contest saved without times is unscheduled: only admins see it until one schedules it or starts it right away. Deleting a contest removes its submissions and standings, and either deletes its problems too or keeps them and publishes them in the problem set.
+**Contests can wait.** A contest saved without times is unscheduled: only admins see it until one schedules it or starts it right away. Deleting a contest removes its submissions and standings, and either deletes its problems too or keeps them and publishes them in the problem set. Within a minute of a contest ending, its problems join the problem set, unless another contest that has not ended yet still uses them. This happens once, so an admin can hide a problem again afterwards.
 
 **Shared solutions.** Authors choose whether an accepted submission appears on the problem's solutions page. That page stays closed while any contest with the problem is upcoming or running.
 
