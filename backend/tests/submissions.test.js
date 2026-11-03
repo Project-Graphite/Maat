@@ -2,7 +2,9 @@ import mongoose from 'mongoose';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
 import app from '../app.js';
+import Contest from '../models/contestModel.js';
 import Submission from '../models/submissionModel.js';
+import TestCase from '../models/testCaseModel.js';
 import { judgeQueue } from '../services/queue.js';
 import { createAdmin, createContest, createProblem, createTestCase, createUser } from './helpers.js';
 
@@ -171,6 +173,97 @@ describe('reading submissions', () => {
 
 		const res = await agent.get(`${url}?status=ACCEPTED`);
 		expect(res.body.total).toBe(1);
+	});
+});
+
+describe('test data of a submission', () => {
+	const HOUR = 60 * 60 * 1000;
+
+	// Judged straight in the database: test 1 passed, test 2 failed
+	const judged = async (userId, overrides = {}) => {
+		await createTestCase(problem._id, { ordinal: 2, input: 'HIDDEN-IN\n', expectedOutput: 'HIDDEN-OUT\n' });
+		return Submission.create({
+			userId,
+			problemId: problem._id,
+			language: 'python3',
+			sourceCode: code,
+			status: 'WRONG_ANSWER',
+			tests: [
+				{ ordinal: 1, verdict: 'ACCEPTED', timeMs: 10 },
+				{ ordinal: 2, verdict: 'WRONG_ANSWER', timeMs: 12 },
+			],
+			failedOutput: 'MY-OUT\n',
+			failedLogs: 'MY-LOGS\n',
+			...overrides,
+		});
+	};
+	const testUrl = (submission, ordinal) => `${url}/${submission.id}/tests/${ordinal}`;
+
+	it('shows the full input and expected output of a passed test', async () => {
+		const { agent, user } = await createUser();
+		const submission = await judged(user._id);
+
+		const res = await agent.get(testUrl(submission, 1));
+		expect(res.status).toBe(200);
+		expect(res.body.data.test).toMatchObject({ ordinal: 1, verdict: 'ACCEPTED', input: '1 2\n', expectedOutput: '3\n' });
+		expect(res.body.data.test.output).toBeUndefined();
+	});
+
+	it('shows what the code printed on the failed test', async () => {
+		const { agent, user } = await createUser();
+		const submission = await judged(user._id);
+
+		const res = await agent.get(testUrl(submission, 2));
+		expect(res.body.data.test).toMatchObject({
+			input: 'HIDDEN-IN\n',
+			expectedOutput: 'HIDDEN-OUT\n',
+			output: 'MY-OUT\n',
+			logs: 'MY-LOGS\n',
+		});
+	});
+
+	it('keeps the failed output out of the submission itself', async () => {
+		const { agent, user } = await createUser();
+		const submission = await judged(user._id);
+
+		const res = await agent.get(`${url}/${submission.id}`);
+		expect(JSON.stringify(res.body)).not.toContain('MY-OUT');
+		expect(JSON.stringify((await agent.get(url)).body)).not.toContain('MY-OUT');
+	});
+
+	it('only shows tests the submission ran', async () => {
+		const { agent, user } = await createUser();
+		await createTestCase(problem._id, { ordinal: 3 });
+		const submission = await judged(user._id);
+
+		expect((await agent.get(testUrl(submission, 3))).status).toBe(404);
+		expect((await agent.get(testUrl(submission, 'x'))).status).toBe(404);
+	});
+
+	it("hides one user's tests from another", async () => {
+		const { user } = await createUser();
+		const other = await createUser();
+		const submission = await judged(user._id);
+
+		expect((await other.agent.get(testUrl(submission, 1))).status).toBe(404);
+	});
+
+	it('keeps hidden tests closed until the contest with the problem ends', async () => {
+		const { agent, user } = await createUser();
+		const submission = await judged(user._id);
+		await TestCase.updateOne({ problemId: problem._id, ordinal: 1 }, { isSample: true });
+		const contest = await createContest(problem._id);
+
+		const res = await agent.get(testUrl(submission, 2));
+		expect(res.status).toBe(403);
+		expect(JSON.stringify(res.body)).not.toContain('HIDDEN');
+		// Examples are public anyway
+		expect((await agent.get(testUrl(submission, 1))).status).toBe(200);
+		// Admins can always look
+		expect((await (await createAdmin()).agent.get(testUrl(submission, 2))).status).toBe(200);
+
+		await Contest.updateOne({ _id: contest._id }, { startsAt: new Date(Date.now() - 2 * HOUR), endsAt: new Date(Date.now() - HOUR) });
+		expect((await agent.get(testUrl(submission, 2))).status).toBe(200);
 	});
 });
 

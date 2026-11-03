@@ -136,17 +136,53 @@ const updateSubmission = catchAsync(async (req, res, next) => {
     res.status(200).json({ status: 'success', data: { submission } });
 });
 
-const getSubmission = catchAsync(async (req, res, next) => {
-    const submission = isObjectId(req.params.id)
-        ? await Submission.findById(req.params.id).populate('problemId', 'slug title')
-        : null;
+const findOwnSubmission = async (id, user, fields = '') => {
+    const submission = isObjectId(id) ? await Submission.findById(id).select(fields) : null;
+    if (!submission || !(isAdmin(user) || submission.userId.equals(user._id))) {
+        throw new AppError('No submission found with that ID.', 404);
+    }
+    return submission;
+};
 
-    const allowed =
-        submission &&
-        (isAdmin(req.user) || submission.userId.equals(req.user._id));
-    if (!allowed) return next(new AppError('No submission found with that ID.', 404));
+const getSubmission = catchAsync(async (req, res) => {
+    const submission = await findOwnSubmission(req.params.id, req.user);
+    await submission.populate('problemId', 'slug title');
 
     res.status(200).json({ status: 'success', data: { submission } });
+});
+
+const getSubmissionTest = catchAsync(async (req, res, next) => {
+    const submission = await findOwnSubmission(req.params.id, req.user, 'userId problemId tests +failedOutput +failedLogs');
+    const ordinal = Number(req.params.ordinal);
+    const result = submission.tests.find((test) => test.ordinal === ordinal);
+    if (!result) return next(new AppError('This submission did not run that test.', 404));
+
+    const testCase = await TestCase.findOne({ problemId: submission.problemId, ordinal }).select(
+        'isSample +input +expectedOutput',
+    );
+    if (!testCase) return next(new AppError('This test has been removed from the problem.', 404));
+    if (
+        !testCase.isSample &&
+        !isAdmin(req.user) &&
+        (await Contest.exists({ 'problems.problemId': submission.problemId, endsAt: { $gt: new Date() } }))
+    ) {
+        return next(new AppError('Test data is shown once the contest with this problem has ended.', 403));
+    }
+
+    const failed = result.verdict !== 'ACCEPTED';
+    res.status(200).json({
+        status: 'success',
+        data: {
+            test: {
+                ordinal,
+                verdict: result.verdict,
+                timeMs: result.timeMs,
+                input: testCase.input,
+                expectedOutput: testCase.expectedOutput,
+                ...(failed && { output: submission.failedOutput, logs: submission.failedLogs }),
+            },
+        },
+    });
 });
 
 const getMySubmissions = catchAsync(async (req, res) => {
@@ -184,4 +220,4 @@ const getMySubmissions = catchAsync(async (req, res) => {
     });
 });
 
-export { createSubmission, runCode, updateSubmission, getSubmission, getMySubmissions };
+export { createSubmission, runCode, updateSubmission, getSubmission, getSubmissionTest, getMySubmissions };

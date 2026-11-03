@@ -1087,13 +1087,49 @@ h1 + .topics {
   margin: 16px 0 0;
   padding: 0;
 }
-.tests li {
+.tests li,
+.tests summary {
   display: grid;
   grid-template-columns: 90px 1fr auto;
   gap: 12px;
   padding: 8px 0;
   border-top: 1px solid var(--line);
   align-items: baseline;
+}
+.tests li.test-row {
+  display: block;
+  padding: 0;
+}
+.tests summary {
+  grid-template-columns: 90px 1fr auto 16px;
+  border-top: 0;
+  cursor: pointer;
+  list-style: none;
+}
+.tests summary::-webkit-details-marker {
+  display: none;
+}
+.tests summary::after {
+  content: '+';
+  color: var(--dust);
+  text-align: center;
+}
+.tests details[open] > summary::after {
+  content: '−';
+}
+.tests summary:hover > span:first-child {
+  color: var(--gold-text);
+}
+.test-data {
+  margin-bottom: 12px;
+}
+.test-data pre {
+  max-height: 320px;
+  overflow: auto;
+}
+.test-data-note {
+  margin-bottom: 12px;
+  font-size: var(--step--1);
 }
 .submit-row {
   display: grid;

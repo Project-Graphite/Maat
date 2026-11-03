@@ -258,7 +258,7 @@ export default function ProblemDetail() {
           )}
 
           <RunPanel run={run} running={running} error={runError} />
-          <ResultPanel result={result} waiting={Boolean(submissionId)} />
+          <ResultPanel result={result} waiting={Boolean(submissionId)} submissionId={submissionId} />
           {submissionId && result && isFinal(result.status) && (
             <Link to={`/submissions/${submissionId}`}>Open this submission</Link>
           )}

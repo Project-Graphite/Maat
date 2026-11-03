@@ -67,7 +67,7 @@ function Detail({ submission }) {
       </header>
 
       <div className="stack">
-        <ResultPanel result={result} />
+        <ResultPanel result={result} submissionId={submission._id} />
         {user && submission.userId === user._id && <Sharing submission={submission} />}
         <section aria-labelledby="source-title">
           <h2 id="source-title" style={{ fontSize: 'var(--step-1)', marginBottom: 12 }}>

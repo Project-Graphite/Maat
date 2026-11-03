@@ -39,7 +39,6 @@ const runTests = async (submission, problem, testCases, jobDir) => {
 	}
 
 	const tests = [];
-	let status = 'ACCEPTED';
 	for (const testCase of testCases) {
 		const result = await run({
 			language,
@@ -52,11 +51,10 @@ const runTests = async (submission, problem, testCases, jobDir) => {
 		tests.push({ ordinal: testCase.ordinal, verdict, timeMs: result.timeMs });
 
 		if (verdict !== 'ACCEPTED') {
-			status = verdict;
-			break;
+			return { status: verdict, tests, failedOutput: result.stdout, failedLogs: result.stderr };
 		}
 	}
-	return { status, tests };
+	return { status: 'ACCEPTED', tests };
 };
 
 const publishVerdict = (submission, { status, compileOutput, tests, judgedAt }) =>
@@ -100,6 +98,8 @@ export const judgeSubmission = async (submissionId) => {
 			status: outcome.status,
 			compileOutput: outcome.compileOutput,
 			tests: outcome.tests,
+			failedOutput: outcome.failedOutput,
+			failedLogs: outcome.failedLogs,
 			judgedAt,
 		},
 	);

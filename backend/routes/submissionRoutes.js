@@ -5,6 +5,7 @@ import {
     runCode,
     updateSubmission,
     getSubmission,
+    getSubmissionTest,
     getMySubmissions,
 } from '../controllers/submissionController.js';
 import * as limits from '../utils/rateLimits.js';
@@ -16,5 +17,6 @@ router.use(protect);
 router.route('/').post(limits.submission, createSubmission).get(getMySubmissions);
 router.post('/run', limits.run, runCode);
 router.route('/:id').get(getSubmission).patch(updateSubmission);
+router.get('/:id/tests/:ordinal', getSubmissionTest);
 
 export default router;

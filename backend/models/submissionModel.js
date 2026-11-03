@@ -53,6 +53,8 @@ const submissionSchema = new mongoose.Schema({
     },
     compileOutput: String,
     tests: [testResultSchema],
+    failedOutput: { type: String, select: false },
+    failedLogs: { type: String, select: false },
     submittedAt: {
         type: Date,
         default: Date.now,
