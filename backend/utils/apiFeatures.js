@@ -2,6 +2,17 @@ const MAX_SEARCH_LENGTH = 60;
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const asString = (value) => (typeof value === 'string' ? value : undefined);
 
+const squash = (text) => text.toLowerCase().replace(/\s+/g, '');
+const spacedPattern = (word) => [...word].map(escapeRegex).join('\\s*');
+
+const closeness = (value, wanted) => {
+    const text = squash(String(value ?? ''));
+    if (text === wanted) return 0;
+    if (text.startsWith(wanted)) return 1;
+    if (text.includes(wanted)) return 2;
+    return 3;
+};
+
 export default class APIFeatures {
 	constructor(query, queryString, options) {
         this.query = query;
@@ -14,13 +25,12 @@ export default class APIFeatures {
 
     search() {
         const field = this.options.searchable;
-        const text = asString(this.queryString.search);
-        if (text && text.trim()) {
+        const text = (asString(this.queryString.search) || '').trim().slice(0, MAX_SEARCH_LENGTH);
+        const words = text.split(/\s+/).filter(Boolean);
+        if (words.length) {
+            this.searchText = squash(text);
             const condition = {
-                [field]: {
-                    $regex: escapeRegex(text.trim().slice(0, MAX_SEARCH_LENGTH)),
-                    $options: 'i',
-                },
+                $and: words.map((word) => ({ [field]: { $regex: spacedPattern(word), $options: 'i' } })),
             };
             Object.assign(this.conditions, condition);
             this.query = this.query.find(condition);
@@ -46,7 +56,20 @@ export default class APIFeatures {
             Number.isInteger(limit) && limit > 0
                 ? Math.min(limit, this.options.maxLimit)
                 : this.options.defaultLimit;
-        this.query = this.query.skip((this.page - 1) * this.limit).limit(this.limit);
+        if (!this.searchText) this.query = this.query.skip((this.page - 1) * this.limit).limit(this.limit);
         return this;
+    }
+
+    async results() {
+        if (!this.searchText) {
+            return Promise.all([this.query, this.query.model.countDocuments(this.conditions)]);
+        }
+        const field = this.options.searchable;
+        const ranked = (await this.query)
+            .map((doc) => ({ doc, rank: closeness(doc[field], this.searchText) }))
+            .sort((a, b) => a.rank - b.rank)
+            .map(({ doc }) => doc);
+        const start = (this.page - 1) * this.limit;
+        return [ranked.slice(start, start + this.limit), ranked.length];
     }
 }

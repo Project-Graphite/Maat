@@ -31,7 +31,7 @@ const getAllProblems = catchAsync(async (req, res) => {
     if (TOPICS.includes(req.query.topic)) Object.assign(filter, { topics: req.query.topic, _id: { $nin: hidden } });
 
     const features = new APIFeatures(
-        Problem.find(filter).select('slug title difficulty topics timeLimitMs memoryLimitMb'),
+        Problem.find(filter).select('slug title difficulty topics timeLimitMs memoryLimitMb').lean(),
         req.query,
         {
             searchable: 'title',
@@ -45,10 +45,7 @@ const getAllProblems = catchAsync(async (req, res) => {
         .sort()
         .paginate();
 
-    const [found, total] = await Promise.all([
-        features.query.lean(),
-        Problem.countDocuments(features.conditions),
-    ]);
+    const [found, total] = await features.results();
     const problems = await withTopics(await withStatus(found, req.user), hidden);
 
     res.status(200).json({
@@ -179,10 +176,7 @@ const getAllProblemsAdmin = catchAsync(async (req, res) => {
         .sort()
         .paginate();
 
-    const [problems, total] = await Promise.all([
-        features.query,
-        Problem.countDocuments(features.conditions),
-    ]);
+    const [problems, total] = await features.results();
 
     res.status(200).json({
         status: 'success',

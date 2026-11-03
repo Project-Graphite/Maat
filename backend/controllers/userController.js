@@ -144,10 +144,7 @@ const getAllUsers = catchAsync(async (req, res) => {
 		.sort()
 		.paginate();
 
-	const [users, total] = await Promise.all([
-		features.query,
-		User.countDocuments(features.conditions),
-	]);
+	const [users, total] = await features.results();
 
 	res.status(200).json({
 		status: 'success',

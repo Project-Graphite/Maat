@@ -225,6 +225,54 @@ describe('public problems', () => {
 	});
 });
 
+describe('search', () => {
+	const search = async (text, extra = '') =>
+		(await request(app).get(`/api/v1/problems?search=${encodeURIComponent(text)}${extra}`)).body;
+	const titles = (body) => body.data.problems.map((p) => p.title);
+
+	it('ignores spaces and case', async () => {
+		await createProblem({ title: 'A + B' });
+		await createProblem({ title: 'Count the primes' });
+
+		for (const text of ['a+b', 'a +b', 'a+ b', 'A + B', ' a  +  b ']) {
+			expect(titles(await search(text))).toEqual(['A + B']);
+		}
+	});
+
+	it('finds the words in any order', async () => {
+		await createProblem({ title: 'Sum of two numbers' });
+		await createProblem({ title: 'Sort the numbers' });
+
+		expect(titles(await search('numbers sum'))).toEqual(['Sum of two numbers']);
+	});
+
+	it('puts the closest titles first, then follows the chosen sort', async () => {
+		await createProblem({ title: 'Shortest paths' });
+		await createProblem({ title: 'Paths in a grid' });
+		await createProblem({ title: 'Paths' });
+		await createProblem({ title: 'Grid of paths' });
+		await createProblem({ title: 'Paths with a twist' });
+
+		expect(titles(await search('paths', '&sort=title'))).toEqual([
+			'Paths',
+			'Paths in a grid',
+			'Paths with a twist',
+			'Grid of paths',
+			'Shortest paths',
+		]);
+	});
+
+	it('pages through ranked results and counts them all', async () => {
+		await createProblem({ title: 'Grid of paths' });
+		await createProblem({ title: 'Paths' });
+		await createProblem({ title: 'Unrelated' });
+
+		const body = await search('paths', '&limit=1&page=2');
+		expect(body.total).toBe(2);
+		expect(titles(body)).toEqual(['Grid of paths']);
+	});
+});
+
 describe('topics', () => {
 	const HOUR = 60 * 60 * 1000;
 	const titles = (res) => res.body.data.problems.map((p) => p.title);
