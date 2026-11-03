@@ -225,6 +225,71 @@ describe('public problems', () => {
 	});
 });
 
+describe('topics', () => {
+	const HOUR = 60 * 60 * 1000;
+	const titles = (res) => res.body.data.problems.map((p) => p.title);
+
+	it('lets an admin set up to six known topics', async () => {
+		const { agent } = await createAdmin();
+		const problem = await createProblem();
+		const patch = (topics) => agent.patch(`${admin}/${problem.id}`).send({ topics });
+
+		const res = await patch(['greedy', 'sorting']);
+		expect(res.status).toBe(200);
+		expect(res.body.data.problem.topics).toEqual(['greedy', 'sorting']);
+
+		expect((await patch(['greedy', 'sorting', 'math', 'strings', 'graphs', 'trees', 'hashing'])).status).toBe(400);
+		expect((await patch(['not a topic'])).status).toBe(400);
+		expect((await patch(['greedy', 'greedy'])).status).toBe(400);
+		expect((await Problem.findById(problem.id)).topics).toEqual(['greedy', 'sorting']);
+	});
+
+	it('shows topics in the list and on the problem page', async () => {
+		await createProblem({ slug: 'tagged', topics: ['math'] });
+
+		const list = await request(app).get('/api/v1/problems');
+		expect(list.body.data.problems[0].topics).toEqual(['math']);
+		const page = await request(app).get('/api/v1/problems/tagged');
+		expect(page.body.data.problem.topics).toEqual(['math']);
+	});
+
+	it('filters by topic', async () => {
+		await createProblem({ title: 'Greedy one', topics: ['greedy'] });
+		await createProblem({ title: 'Math one', topics: ['math', 'number theory'] });
+
+		const res = await request(app).get('/api/v1/problems?topic=number theory');
+		expect(titles(res)).toEqual(['Math one']);
+		expect(res.body.total).toBe(1);
+	});
+
+	it('hides topics while a contest with the problem has not ended', async () => {
+		const problem = await createProblem({ slug: 'live', title: 'Live', topics: ['greedy'] });
+		const contest = await createContest(problem._id);
+		const { agent } = await createUser();
+
+		expect((await agent.get('/api/v1/problems')).body.data.problems[0].topics).toEqual([]);
+		expect((await agent.get('/api/v1/problems/live')).body.data.problem.topics).toEqual([]);
+		expect((await agent.get(`/api/v1/contests/${contest.id}`)).body.data.contest.problems[0].topics).toEqual([]);
+		expect(titles(await agent.get('/api/v1/problems?topic=greedy'))).toEqual([]);
+	});
+
+	it('hides topics before an upcoming contest starts', async () => {
+		const problem = await createProblem({ slug: 'soon', topics: ['greedy'] });
+		await createContest(problem._id, { startsIn: HOUR, endsIn: 2 * HOUR });
+
+		expect((await request(app).get('/api/v1/problems/soon')).body.data.problem.topics).toEqual([]);
+	});
+
+	it('shows topics once the contest has ended', async () => {
+		const problem = await createProblem({ slug: 'over', title: 'Over', topics: ['greedy'] });
+		const contest = await createContest(problem._id, { startsIn: -2 * HOUR, endsIn: -HOUR });
+
+		expect((await request(app).get('/api/v1/problems/over')).body.data.problem.topics).toEqual(['greedy']);
+		expect((await request(app).get(`/api/v1/contests/${contest.id}`)).body.data.contest.problems[0].topics).toEqual(['greedy']);
+		expect(titles(await request(app).get('/api/v1/problems?topic=greedy'))).toEqual(['Over']);
+	});
+});
+
 describe('problem status', () => {
 	const statusOf = (res, title) => res.body.data.problems.find((p) => p.title === title).status;
 

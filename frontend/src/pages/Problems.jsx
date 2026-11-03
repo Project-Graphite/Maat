@@ -3,10 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom'
 import Pagination from '../components/Pagination.jsx'
 import Seo from '../components/Seo.jsx'
 import { EmptyState, ErrorState, Loading } from '../components/States.jsx'
+import Topics from '../components/Topics.jsx'
 import { Difficulty, ProblemStatus } from '../components/VerdictBadge.jsx'
 import { useAuth } from '../context/Auth.jsx'
 import { api, query } from '../lib/api.js'
 import { useAsync, useDebounced } from '../lib/hooks.js'
+import { TOPICS } from '../lib/topics.js'
 
 const LIMIT = 20
 const LEVELS = [
@@ -21,6 +23,7 @@ export default function Problems() {
   const [params, setParams] = useSearchParams()
   const page = Number(params.get('page')) || 1
   const difficulty = params.get('difficulty') || ''
+  const topic = params.get('topic') || ''
   const sort = params.get('sort') || '-createdAt'
   const urlSearch = params.get('search') || ''
 
@@ -42,12 +45,12 @@ export default function Problems() {
   }, [debounced])
 
   const { data, error, loading, reload } = useAsync(
-    (signal) => api(`/problems${query({ page, limit: LIMIT, difficulty, sort, search: urlSearch })}`, { signal }),
-    [page, difficulty, sort, urlSearch, user?._id],
+    (signal) => api(`/problems${query({ page, limit: LIMIT, difficulty, topic, sort, search: urlSearch })}`, { signal }),
+    [page, difficulty, topic, sort, urlSearch, user?._id],
   )
 
   const problems = data?.data.problems || []
-  const filtered = Boolean(difficulty || urlSearch)
+  const filtered = Boolean(difficulty || topic || urlSearch)
 
   return (
     <div className="page">
@@ -89,6 +92,19 @@ export default function Problems() {
           ))}
         </div>
         <div className="field">
+          <label htmlFor="topic" className="sr-only">
+            Topic
+          </label>
+          <select id="topic" className="select" value={topic} onChange={(e) => update({ topic: e.target.value, page: '' })}>
+            <option value="">All topics</option>
+            {TOPICS.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
           <label htmlFor="sort" className="sr-only">
             Sort by
           </label>
@@ -121,7 +137,7 @@ export default function Problems() {
             )
           }
         >
-          {filtered ? 'Try a different search or difficulty.' : 'Problems appear here as soon as they are published.'}
+          {filtered ? 'Try a different search, difficulty or topic.' : 'Problems appear here as soon as they are published.'}
         </EmptyState>
       )}
 
@@ -147,6 +163,7 @@ export default function Problems() {
                   <tr key={problem._id}>
                     <td>
                       <Link to={`/problems/${problem.slug}`}>{problem.title}</Link>
+                      <Topics topics={problem.topics} compact />
                     </td>
                     {user && (
                       <td>

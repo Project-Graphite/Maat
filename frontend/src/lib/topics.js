@@ -1,0 +1,28 @@
+// The same list as the backend's problem model
+export const TOPICS = [
+  'implementation',
+  'math',
+  'number theory',
+  'combinatorics',
+  'geometry',
+  'strings',
+  'sorting',
+  'searching',
+  'binary search',
+  'two pointers',
+  'prefix sums',
+  'greedy',
+  'brute force',
+  'recursion',
+  'divide and conquer',
+  'dynamic programming',
+  'data structures',
+  'stacks and queues',
+  'hashing',
+  'trees',
+  'graphs',
+  'shortest paths',
+  'bit manipulation',
+  'constructive',
+]
+export const MAX_TOPICS = 6

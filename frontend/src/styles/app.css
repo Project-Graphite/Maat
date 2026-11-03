@@ -623,6 +623,37 @@
   color: var(--gold-text);
 }
 
+.topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+a.tag {
+  text-decoration: none;
+}
+a.tag:hover {
+  border-color: var(--gold-deep);
+  color: var(--gold-text);
+}
+h1 + .topics {
+  margin-top: 12px;
+}
+.topics-compact {
+  margin-top: 6px;
+}
+.topics-compact .tag {
+  padding: 0 8px;
+}
+
+.topic-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px 16px;
+}
+
 /* ---------- Toolbar, tabs, pagination ---------- */
 
 .toolbar {

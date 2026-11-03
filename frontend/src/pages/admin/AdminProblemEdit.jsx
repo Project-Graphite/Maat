@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, Loading } from '../../components/States.jsx'
 import { useUi } from '../../context/Ui.jsx'
 import { api } from '../../lib/api.js'
 import { useAsync } from '../../lib/hooks.js'
+import { MAX_TOPICS, TOPICS } from '../../lib/topics.js'
 
 const BLANK = {
   title: '',
@@ -14,6 +15,7 @@ const BLANK = {
   timeLimitMs: 2000,
   memoryLimitMb: 256,
   difficulty: 'easy',
+  topics: [],
   visible: false,
 }
 
@@ -27,6 +29,8 @@ function ProblemForm({ problem, isNew }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
+  const toggleTopic = (topic) => (e) =>
+    setForm({ ...form, topics: e.target.checked ? [...form.topics, topic] : form.topics.filter((t) => t !== topic) })
 
   const submit = async (event) => {
     event.preventDefault()
@@ -38,6 +42,7 @@ function ProblemForm({ problem, isNew }) {
       timeLimitMs: Number(form.timeLimitMs),
       memoryLimitMb: Number(form.memoryLimitMb),
       difficulty: form.difficulty,
+      topics: form.topics,
       visible: form.visible,
     }
     if (isNew && form.slug.trim()) body.slug = form.slug.trim()
@@ -110,6 +115,28 @@ function ProblemForm({ problem, isNew }) {
           </select>
         </div>
       </div>
+      <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+        <legend style={{ fontWeight: 500, marginBottom: 6 }}>Topics</legend>
+        <p className="field-hint" style={{ marginBottom: 12 }}>
+          Up to {MAX_TOPICS}. They stay hidden while a contest with this problem has not ended.
+        </p>
+        <div className="topic-picker">
+          {TOPICS.map((topic) => {
+            const checked = form.topics.includes(topic)
+            return (
+              <label className="check" key={topic}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={!checked && form.topics.length >= MAX_TOPICS}
+                  onChange={toggleTopic(topic)}
+                />
+                {topic}
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
       <label className="check">
         <input type="checkbox" checked={form.visible} onChange={set('visible')} />
         Published, so everyone can see and solve it

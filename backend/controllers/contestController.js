@@ -9,6 +9,7 @@ import { isAdmin } from '../utils/roles.js';
 import isObjectId from '../utils/isObjectId.js';
 import pick from '../utils/pick.js';
 import { withStatus } from '../services/problemStatus.js';
+import { withTopics } from '../services/topics.js';
 import { clearLeaderboard } from '../services/leaderboard.js';
 
 const EDITABLE = ['title', 'startsAt', 'endsAt', 'problems'];
@@ -91,7 +92,7 @@ const getContest = catchAsync(async (req, res, next) => {
     const contest = isObjectId(req.params.id)
         ? await Contest.findById(req.params.id).populate(
               'problems.problemId',
-              'slug title difficulty',
+              'slug title difficulty topics',
           )
         : null;
     const admin = isAdmin(req.user);
@@ -107,7 +108,7 @@ const getContest = catchAsync(async (req, res, next) => {
         data.problems = data.problems
             .filter((p) => p.problemId)
             .map(({ label, problemId }) => ({ label, ...problemId }));
-        data.problems = await withStatus(data.problems, req.user, { contestId: contest._id });
+        data.problems = await withTopics(await withStatus(data.problems, req.user, { contestId: contest._id }));
     }
 
     res.status(200).json({ status: 'success', data: { contest: data } });

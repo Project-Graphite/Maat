@@ -1,6 +1,34 @@
 import mongoose from 'mongoose';
 import slugify from 'slugify';
 
+export const TOPICS = [
+    'implementation',
+    'math',
+    'number theory',
+    'combinatorics',
+    'geometry',
+    'strings',
+    'sorting',
+    'searching',
+    'binary search',
+    'two pointers',
+    'prefix sums',
+    'greedy',
+    'brute force',
+    'recursion',
+    'divide and conquer',
+    'dynamic programming',
+    'data structures',
+    'stacks and queues',
+    'hashing',
+    'trees',
+    'graphs',
+    'shortest paths',
+    'bit manipulation',
+    'constructive',
+];
+export const MAX_TOPICS = 6;
+
 const problemSchema = new mongoose.Schema(
     {
         slug: {
@@ -36,6 +64,19 @@ const problemSchema = new mongoose.Schema(
             enum: ['easy', 'medium', 'hard'],
             default: 'easy',
         },
+        topics: {
+            type: [{ type: String, enum: { values: TOPICS, message: '"{VALUE}" is not a known topic' } }],
+            validate: [
+                {
+                    validator: (topics) => topics.length <= MAX_TOPICS,
+                    message: `A problem can have at most ${MAX_TOPICS} topics`,
+                },
+                {
+                    validator: (topics) => new Set(topics).size === topics.length,
+                    message: 'A topic can only be added once',
+                },
+            ],
+        },
         visible: {
             type: Boolean,
             default: false,
@@ -50,6 +91,8 @@ problemSchema.pre('validate', function (next) {
     }
     next();
 });
+
+problemSchema.index({ topics: 1 });
 
 const Problem = mongoose.model('Problem', problemSchema);
 

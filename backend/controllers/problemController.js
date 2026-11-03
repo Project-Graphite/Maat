@@ -1,7 +1,8 @@
-import Problem from '../models/problemModel.js';
+import Problem, { TOPICS } from '../models/problemModel.js';
 import TestCase from '../models/testCaseModel.js';
 import Submission from '../models/submissionModel.js';
 import { withStatus } from '../services/problemStatus.js';
+import { problemsInUnendedContests, withTopics } from '../services/topics.js';
 import Contest from '../models/contestModel.js';
 import APIFeatures from '../utils/apiFeatures.js';
 import catchAsync from '../utils/catchAsync.js';
@@ -17,6 +18,7 @@ const EDITABLE = [
     'timeLimitMs',
     'memoryLimitMb',
     'difficulty',
+    'topics',
     'visible',
 ];
 
@@ -24,8 +26,12 @@ const getAllProblems = catchAsync(async (req, res) => {
     const filter = { visible: true };
     if (DIFFICULTIES.includes(req.query.difficulty)) filter.difficulty = req.query.difficulty;
 
+    // Problems whose topics are hidden must not turn up when filtering by topic either
+    const hidden = await problemsInUnendedContests();
+    if (TOPICS.includes(req.query.topic)) Object.assign(filter, { topics: req.query.topic, _id: { $nin: hidden } });
+
     const features = new APIFeatures(
-        Problem.find(filter).select('slug title difficulty timeLimitMs memoryLimitMb'),
+        Problem.find(filter).select('slug title difficulty topics timeLimitMs memoryLimitMb'),
         req.query,
         {
             searchable: 'title',
@@ -43,7 +49,7 @@ const getAllProblems = catchAsync(async (req, res) => {
         features.query.lean(),
         Problem.countDocuments(features.conditions),
     ]);
-    const problems = await withStatus(found, req.user);
+    const problems = await withTopics(await withStatus(found, req.user), hidden);
 
     res.status(200).json({
         status: 'success',
@@ -83,11 +89,12 @@ const author = (user) => (user ? { _id: user._id, name: user.name, photo: user.p
 const getProblem = catchAsync(async (req, res) => {
     const problem = await findOpenProblem(req.params.slug, req.user);
 
-    const samples = await TestCase.find({ problemId: problem._id, isSample: true })
-        .select('ordinal +input +expectedOutput')
-        .sort('ordinal');
+    const [samples, [shown]] = await Promise.all([
+        TestCase.find({ problemId: problem._id, isSample: true }).select('ordinal +input +expectedOutput').sort('ordinal'),
+        withTopics([problem.toObject()]),
+    ]);
 
-    res.status(200).json({ status: 'success', data: { problem, samples } });
+    res.status(200).json({ status: 'success', data: { problem: shown, samples } });
 });
 
 const SOLUTIONS_PER_PAGE = 10;

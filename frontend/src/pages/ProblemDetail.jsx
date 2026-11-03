@@ -6,6 +6,7 @@ import ResultPanel from '../components/ResultPanel.jsx'
 import RunPanel from '../components/RunPanel.jsx'
 import Seo from '../components/Seo.jsx'
 import { ErrorState, Loading } from '../components/States.jsx'
+import Topics from '../components/Topics.jsx'
 import { Difficulty } from '../components/VerdictBadge.jsx'
 import { useAuth } from '../context/Auth.jsx'
 import { useUi } from '../context/Ui.jsx'
@@ -174,6 +175,7 @@ export default function ProblemDetail() {
       <div className="workbench">
         <article className="workbench-statement">
           <h1>{problem.title}</h1>
+          <Topics topics={problem.topics} />
           <div className="problem-meta">
             <Difficulty level={problem.difficulty} />
             <span>Time limit {problem.timeLimitMs / 1000} s</span>

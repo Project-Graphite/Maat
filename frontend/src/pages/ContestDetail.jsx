@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Seo from '../components/Seo.jsx'
 import { EmptyState, ErrorState, Loading } from '../components/States.jsx'
+import Topics from '../components/Topics.jsx'
 import { Difficulty, ProblemStatus } from '../components/VerdictBadge.jsx'
 import { useAuth } from '../context/Auth.jsx'
 import { api } from '../lib/api.js'
@@ -181,6 +182,7 @@ export default function ContestDetail() {
                       </td>
                       <td>
                         <Link to={`/problems/${problem.slug}?contest=${contest._id}`}>{problem.title}</Link>
+                        <Topics topics={problem.topics} compact />
                       </td>
                       {user && (
                         <td>
