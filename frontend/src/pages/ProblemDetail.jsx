@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import CodeEditor from '../components/CodeEditor.jsx'
 import Markdown from '../components/Markdown.jsx'
@@ -79,6 +79,8 @@ export default function ProblemDetail() {
   const [share, setShare] = useState(() => load('maat:share', '') === 'yes')
   const health = useAsync((signal) => fetch('/health', { signal }).then((res) => res.json()), [])
   const [judgeOnline, setJudgeOnline] = useState(true)
+  const [columns, setColumns] = useState()
+  const resultsRef = useRef(null)
   const judgeOffline = !judgeOnline || health.data?.workers === 0
 
   // The draft for this problem and language, or a starter file
@@ -92,6 +94,11 @@ export default function ProblemDetail() {
 
   const result = useSubmissionStream(submissionId)
 
+  // The editor side scrolls on its own, so bring a new run or verdict into view below the editor
+  useEffect(() => {
+    if (running || submissionId) resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [running, submissionId])
+
   const onCode = (next) => {
     setCode(next)
     save(draftKey(user, slug, language), next)
@@ -99,7 +106,7 @@ export default function ProblemDetail() {
 
   const format = async () => {
     try {
-      onCode(await formatCode(language, code))
+      onCode(await formatCode(language, code, columns))
     } catch {
       toast('Your code could not be formatted. Fix any syntax errors and try again.', 'error')
     }
@@ -166,7 +173,7 @@ export default function ProblemDetail() {
   const inFlight = submissionId && !(result && isFinal(result.status))
 
   return (
-    <div className="page page-wide">
+    <div className="page page-workbench">
       <Seo
         title={problem.title}
         description={`${problem.title}: ${summarize(problem.statementMd)}`}
@@ -222,7 +229,7 @@ export default function ProblemDetail() {
             </div>
           </div>
 
-          <CodeEditor language={language} value={code} onChange={onCode} label={`${problem.title} solution`} />
+          <CodeEditor language={language} value={code} onChange={onCode} onColumns={setColumns} label={`${problem.title} solution`} />
 
           {judgeOffline && (
             <div className="notice" role="status">
@@ -257,11 +264,13 @@ export default function ProblemDetail() {
             </Link>
           )}
 
-          <RunPanel run={run} running={running} error={runError} />
-          <ResultPanel result={result} waiting={Boolean(submissionId)} submissionId={submissionId} />
-          {submissionId && result && isFinal(result.status) && (
-            <Link to={`/submissions/${submissionId}`}>Open this submission</Link>
-          )}
+          <div className="workbench-results" ref={resultsRef}>
+            <RunPanel run={run} running={running} error={runError} />
+            <ResultPanel result={result} waiting={Boolean(submissionId)} submissionId={submissionId} />
+            {submissionId && result && isFinal(result.status) && (
+              <Link to={`/submissions/${submissionId}`}>Open this submission</Link>
+            )}
+          </div>
         </div>
       </div>
     </div>

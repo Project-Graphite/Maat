@@ -9,12 +9,18 @@ import { LANGUAGES } from '../lib/verdicts.js'
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() }
 loader.config({ monaco })
 
-// Monaco's own Format Document command (Shift+Alt+F) uses the same formatters as the Format button
+// How many characters fit on a line without scrolling sideways
+const columnsOf = (editor) => editor.getLayoutInfo().viewportColumn
+
+// Monaco's own Format Document command (Shift+Alt+F) uses the same formatters as the Format button,
+// wrapped to the width of the editor it runs in
 for (const [language, { monaco: id }] of Object.entries(LANGUAGES)) {
   monaco.languages.registerDocumentFormattingEditProvider(id, {
     provideDocumentFormattingEdits: async (model) => {
+      const editor = monaco.editor.getEditors().find((e) => e.getModel() === model)
       try {
-        return [{ range: model.getFullModelRange(), text: await formatCode(language, model.getValue()) }]
+        const text = await formatCode(language, model.getValue(), editor && columnsOf(editor))
+        return [{ range: model.getFullModelRange(), text }]
       } catch {
         return []
       }
@@ -77,14 +83,21 @@ const defineTheme = (m) => {
   })
 }
 
-export default function MonacoEditor({ value, onChange, language, readOnly = false, label }) {
+// onColumns hears the editor's width in characters whenever it changes
+export default function MonacoEditor({ value, onChange, onColumns, language, readOnly = false, label }) {
   const [theme] = useTheme()
+  const onMount = (editor) => {
+    if (!onColumns) return
+    onColumns(columnsOf(editor))
+    editor.onDidLayoutChange(() => onColumns(columnsOf(editor)))
+  }
   return (
     <Editor
       value={value}
       language={LANGUAGES[language]?.monaco}
       theme={theme === 'light' ? 'maat-light' : 'maat'}
       beforeMount={defineTheme}
+      onMount={onMount}
       onChange={(next) => onChange?.(next ?? '')}
       loading={<div className="spinner" />}
       options={{

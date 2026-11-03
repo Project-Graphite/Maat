@@ -932,22 +932,47 @@ h1 + .topics {
 
 /* ---------- Problem page ---------- */
 
+/* The problem page uses the whole screen: the statement scrolls with the page while the editor
+   side stays pinned at full height and scrolls on its own, with the controls always in reach */
+.page-workbench {
+  max-width: 1800px;
+  padding-top: 24px;
+}
 .workbench {
+  --workbench-top: calc(var(--nav-height) + 24px);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   gap: 32px;
   align-items: start;
 }
 .workbench-statement {
   min-width: 0;
 }
+/* The padding keeps focus rings from being cut off by the scroll box */
 .workbench-side {
   position: sticky;
-  top: calc(var(--nav-height) + 24px);
+  top: var(--workbench-top);
+  max-height: calc(100dvh - var(--workbench-top) - 24px);
+  overflow-y: auto;
+  margin: -4px;
+  padding: 4px;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+/* Room for the bar above the editor and the buttons below it */
+.workbench-side .editor-frame {
+  flex-shrink: 0;
+  height: max(360px, calc(100dvh - var(--workbench-top) - 210px));
+}
+.workbench-results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.workbench-results:empty {
+  display: none;
 }
 @media (max-width: 1000px) {
   .workbench {
@@ -955,6 +980,11 @@ h1 + .topics {
   }
   .workbench-side {
     position: static;
+    max-height: none;
+    overflow: visible;
+  }
+  .workbench-side .editor-frame {
+    height: min(540px, 70dvh);
   }
 }
 
