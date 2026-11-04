@@ -11,8 +11,9 @@ For every job it receives, the worker:
 3. For C++, compiles it in a compile container. A failure here is a Compile Error, and the compiler output is saved
 4. Runs the program once per test case in a fresh container, with the test input on stdin
 5. Classifies the result and stops at the first failing test
-6. Saves the verdict, publishes it on the Redis `verdicts` channel for the backend to forward to the browser, and updates the contest leaderboard if the submission belongs to a contest
-7. Deletes the job directory, whatever happened
+6. Saves the verdict and the result of each test it ran. For the test that failed it also saves what the program printed and its stderr, so the author can see them. A passed test printed the expected output, so nothing more is kept for it
+7. Publishes the verdict on the Redis `verdicts` channel for the backend to forward to the browser, and updates the contest leaderboard if the submission belongs to a contest
+8. Deletes the job directory, whatever happened
 
 ## Verdicts
 

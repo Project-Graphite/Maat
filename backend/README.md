@@ -19,7 +19,7 @@ backend/
 ├── controllers/   Request handlers and the global error handler
 ├── models/        Mongoose schemas: User, Problem, TestCase, Submission, Contest
 ├── routes/        Route definitions
-├── services/      Redis, the judging queue, contest standings, problem status, account cleanup, publishing contest problems
+├── services/      Redis, the judging queue, contest standings, problem status, topics, account cleanup, publishing contest problems
 ├── sockets/       Socket.IO: login check, rooms, verdict forwarding
 ├── utils/         Shared helpers
 ├── scripts/       seed.js: example problems, a practice contest and the super admin account
@@ -39,7 +39,7 @@ Helpers in `utils/`:
 | `sameOrigin.js` | Blocks state-changing requests that come from another website |
 | `rateLimits.js` | Every rate limit in one place |
 | `email.js` | Sends password reset emails |
-| `apiFeatures.js` | Filtering, sorting, field selection and pagination for list endpoints |
+| `apiFeatures.js` | Search, sorting and pagination for list endpoints. A search puts the closest matches first |
 
 ## Running it
 
@@ -72,8 +72,8 @@ MongoDB, Redis and MinIO need to be running first. Copy `.env.example` to `.env`
 | Area | Routes | Access |
 | :--- | :--- | :--- |
 | Auth | Register, log in, log out, forgot and reset password | Public |
-| Problems | List visible problems, read one with its sample cases, list its shared solutions, open one solution | Public |
-| Submissions | Create a submission, run code on the examples, share or hide one, read one, list your own | Logged in |
+| Problems | List visible problems (search, filter by difficulty or topic), read one with its sample cases, list its shared solutions, open one solution | Public |
+| Submissions | Create a submission, run code on the examples, share or hide one, read one, read the full data of a test it ran, list your own | Logged in |
 | Account | Profile, progress stats, photo, password, delete account | Logged in |
 | Contests | List, read, standings | Public |
 | Admin | Problems, test cases, contests, users and their roles | Admin only |
@@ -82,11 +82,19 @@ Submitting returns `202 Accepted` with the submission id straight away. The verd
 
 `POST /submissions/run` is different: it runs the code on the problem's examples only, waits for the worker (up to a minute) and answers with each example's output and logs. Nothing is stored.
 
+`GET /submissions/:id/tests/:ordinal` returns one test the submission ran: its full input and expected output, and for the test it failed, what the code printed and its stderr. A submission's `tests` list is every test up to and including the one it failed, since judging stops there.
+
 ## Design notes
 
 **Submissions go through a queue.** The API only validates and stores a submission, then adds a job. A slow or overloaded judge cannot make the API slow, and a failed job is retried once.
 
-**Hidden tests stay hidden.** Test case data is only ever read by the worker. Public routes return sample cases and nothing else.
+**Hidden tests are only shown to the people who ran them.** Public routes return sample cases and nothing else. The author of a submission, and admins, can open the full data of each test it ran, so a failure can be understood. While a contest with the problem is still to come or running, hidden tests stay closed even to the author, so nobody can collect them and hardcode the answers. Examples are always open.
+
+**Only the failed test's output is kept.** A test that passed printed the expected output anyway. The worker saves what the code printed on the test it failed (up to 1 MB) and its stderr, in `failedOutput` and `failedLogs`. Both are left out of every query except the one for that test, so lists and live verdicts stay small. Test data itself is read from the problem when it is opened, so an edited test shows its new version.
+
+**Topics.** A problem has up to six topics from a fixed list in `problemModel.js` (greedy, graphs, dynamic programming and so on). The frontend keeps the same list in `src/lib/topics.js`, so the two must change together. Topics hint at a solution, so `services/topics.js` hides them while a contest with the problem is still to come or running: they come back as an empty list, and filtering by topic leaves those problems out.
+
+**Search.** Every word typed must appear in the field, in any order, and spaces inside a word do not matter, so `a+b` finds "A + B". Results are ranked: the exact title, then titles starting with the text, then titles containing it, then the rest. The chosen sort orders results that are equally close. Ranking needs every match, so a search reads all matching rows and pages them in memory. That suits problem titles and user names. A much larger collection would need the ranking moved into MongoDB.
 
 **Sockets are authenticated.** The JWT is checked during the handshake, and a client can join a submission room only if it owns that submission.
 
@@ -114,7 +122,7 @@ Submitting returns `202 Accepted` with the submission id straight away. The verd
 SEED_ADMIN_EMAIL=you@example.com SEED_ADMIN_PASSWORD=a-long-password npm run seed
 ```
 
-Adds three problems with their tests, from easy to a time-limit trap, an unscheduled practice contest with six hidden problems (two easy, two medium, two hard), and the super admin account. Running it again updates them instead of making copies.
+Adds nine problems with their tests and topics, from easy to a time-limit trap, an unscheduled practice contest with six hidden problems (two easy, two medium, two hard), and the super admin account. Running it again updates them instead of making copies, but it also replaces their test cases and resets their visibility: the nine problems are published again and the contest's problems hidden again. Run it on a fresh database, not on one people are using.
 
 ## Tests
 

@@ -6,15 +6,18 @@ The hard part of a judge is running code written by strangers without trusting i
 
 ## What it does
 
-- Browse problems, read the statement and write a solution in an in-browser editor
+- Browse problems, search them by title and filter them by difficulty or topic
+- Read the statement and write a solution in an in-browser editor with VS Code-style snippets and suggestions
 - Submit C++17 or Python 3 code and watch the verdict arrive live, test by test, without refreshing
+- Open each test your submission ran, up to the one it failed, to see the full input, the expected output, and what your code printed there
 - Get one of seven verdicts: Accepted, Wrong Answer, Time Limit Exceeded, Memory Limit Exceeded, Runtime Error, Compile Error, or Judge Error if the judge itself fails
 - Join timed contests with ICPC-style scoring and a leaderboard that updates as submissions are judged
 - See which problems you have solved or tried, in every problem list
 - Upload a profile picture, which is re-encoded before it is stored
 - Delete your account. It is kept for 30 days in case you change your mind, then removed with all its data
-- Run code on a problem's examples before submitting, and format it with one click
+- Run code on a problem's examples before submitting, and format it with one click, wrapped to the width of the editor
 - Share accepted solutions, and read other people's once a problem is no longer in a running contest
+- See each problem's topics, such as greedy or graphs, once no contest that uses it is still to come or running
 - Follow your progress on your profile: problems solved by difficulty and your latest submissions
 - Switch between dark and light mode
 - Manage problems, hidden test cases, contests and users from an admin area. A super admin also manages the admins
@@ -87,7 +90,7 @@ sequenceDiagram
         S-->>W: Output, time, exit code
     end
     alt Judged
-        W->>M: Save verdict, per-test results and judgedAt
+        W->>M: Save verdict, per-test results, the failed test's output and judgedAt
         opt Contest submission
             W->>R: Lua script updates the user's score and the contest board sorted set
         end
@@ -162,7 +165,7 @@ Running other people's code is the main risk, so the design assumes every submis
 
 - Sandboxes run with no network, a read-only root filesystem, all Linux capabilities dropped, no privilege escalation, and limits on memory, CPU, process count and output size
 - Commands are started with argument arrays rather than shell strings, so nothing in a submission can inject a command
-- Hidden test data is never returned by any public route, only the sample cases
+- Hidden test data is only shown to the author of a submission, for the tests that submission ran, and never while a contest with the problem is still to come or running
 - Users can only read their own submissions, and sockets can only join the room of a submission they own
 - Uploaded images are decoded and rebuilt from raw pixels, so metadata and hidden payloads do not survive
 - Requests are sanitized against NoSQL and XSS injection and checked against the allowed frontend origin
