@@ -69,8 +69,13 @@ for (const [language, { monaco: id }] of Object.entries(LANGUAGES)) {
     },
   })
 
-  // Snippets and keywords from lib/completions.js. Each replaces the word being typed
+  // The menu offers the snippets and names from lib/completions.js, then the other words already in
+  // the file. Monaco's own word suggestions are off: it skips them as soon as a provider for the
+  // language answers, and this way no name shows twice
   const { snippets, keywords } = COMPLETIONS[language]
+  const labels = new Set(snippets.map(({ label }) => label))
+  const names = [...new Set(keywords)].filter((name) => !labels.has(name))
+  const known = new Set([...labels, ...names])
   const { CompletionItemKind, CompletionItemInsertTextRule } = monaco.languages
   monaco.languages.registerCompletionItemProvider(id, {
     provideCompletionItems: (model, position) => {
@@ -81,6 +86,8 @@ for (const [language, { monaco: id }] of Object.entries(LANGUAGES)) {
         startColumn: word.startColumn,
         endColumn: word.endColumn,
       }
+      const words = new Set(model.getValue().match(/[A-Za-z_]\w*/g))
+      words.delete(model.getWordAtPosition(position)?.word)
       return {
         suggestions: [
           ...snippets.map(({ label, detail, body }) => ({
@@ -92,7 +99,10 @@ for (const [language, { monaco: id }] of Object.entries(LANGUAGES)) {
             insertTextRules: CompletionItemInsertTextRule.InsertAsSnippet,
             range,
           })),
-          ...keywords.map((name) => ({ label: name, kind: CompletionItemKind.Keyword, insertText: name, range })),
+          ...names.map((name) => ({ label: name, kind: CompletionItemKind.Keyword, insertText: name, range })),
+          ...[...words]
+            .filter((name) => !known.has(name))
+            .map((name) => ({ label: name, kind: CompletionItemKind.Text, insertText: name, range })),
         ],
       }
     },
@@ -199,6 +209,7 @@ export default function MonacoEditor({ value, onChange, onColumns, language, rea
         automaticLayout: true,
         tabSize: 4,
         snippetSuggestions: 'top',
+        wordBasedSuggestions: 'off',
         // The suggestion menu and its code preview may reach past the editor's edges
         fixedOverflowWidgets: true,
         padding: { top: 14, bottom: 14 },
