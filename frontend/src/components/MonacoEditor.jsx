@@ -1,6 +1,7 @@
 import Editor, { loader } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor/editor/editor.main.js'
 import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker'
+import { COMPLETIONS } from '../lib/completions.js'
 import { formatCode } from '../lib/formatter.js'
 import { useTheme } from '../lib/theme.js'
 import { LANGUAGES } from '../lib/verdicts.js'
@@ -23,6 +24,34 @@ for (const [language, { monaco: id }] of Object.entries(LANGUAGES)) {
         return [{ range: model.getFullModelRange(), text }]
       } catch {
         return []
+      }
+    },
+  })
+
+  // Snippets and keywords from lib/completions.js. Each replaces the word being typed
+  const { snippets, keywords } = COMPLETIONS[language]
+  const { CompletionItemKind, CompletionItemInsertTextRule } = monaco.languages
+  monaco.languages.registerCompletionItemProvider(id, {
+    provideCompletionItems: (model, position) => {
+      const word = model.getWordUntilPosition(position)
+      const range = {
+        startLineNumber: position.lineNumber,
+        endLineNumber: position.lineNumber,
+        startColumn: word.startColumn,
+        endColumn: word.endColumn,
+      }
+      return {
+        suggestions: [
+          ...snippets.map(({ label, detail, body }) => ({
+            label,
+            detail,
+            kind: CompletionItemKind.Snippet,
+            insertText: body,
+            insertTextRules: CompletionItemInsertTextRule.InsertAsSnippet,
+            range,
+          })),
+          ...keywords.map((name) => ({ label: name, kind: CompletionItemKind.Keyword, insertText: name, range })),
+        ],
       }
     },
   })
