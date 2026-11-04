@@ -10,6 +10,47 @@ import { LANGUAGES } from '../lib/verdicts.js'
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() }
 loader.config({ monaco })
 
+// A snippet as it will be written, for the details pane: each placeholder shows its default text
+const preview = (body) => {
+  const defaults = {}
+  const text = body.replace(/\$\{(\d+):?([^}]*)\}/g, (_, n, value) => (defaults[n] = value))
+  return text.replace(/\$(\d+)/g, (_, n) => defaults[n] ?? '').replace(/\t/g, '    ')
+}
+
+const SNIPPETS = Object.fromEntries(
+  Object.entries(LANGUAGES).map(([language, { monaco: id }]) => [
+    id,
+    new Map(COMPLETIONS[language].snippets.map(({ label, body }) => [label, body])),
+  ]),
+)
+
+// Typing a snippet's name then Tab writes it, even with the menu closed. VS Code does this itself,
+// but Monaco leaves it out. Anywhere else Tab still indents
+const addTabCompletion = (editor) => {
+  const snippetAtCursor = () => {
+    const model = editor.getModel()
+    const position = editor.getPosition()
+    const word = model && position && model.getWordAtPosition(position)
+    if (!word || word.endColumn !== position.column) return null
+    const body = SNIPPETS[model.getLanguageId()]?.get(word.word)
+    return body && { body, length: word.word.length }
+  }
+  const atSnippet = editor.createContextKey('maatSnippetAtCursor', false)
+  const update = () => atSnippet.set(Boolean(snippetAtCursor()))
+  editor.onDidChangeCursorPosition(update)
+  editor.onDidChangeModelLanguage(update)
+  editor.addAction({
+    id: 'maat.expandSnippet',
+    label: 'Expand snippet',
+    keybindings: [monaco.KeyCode.Tab],
+    precondition: 'maatSnippetAtCursor && !suggestWidgetVisible && !inSnippetMode',
+    run: () => {
+      const snippet = snippetAtCursor()
+      if (snippet) editor.getContribution('snippetController2').insert(snippet.body, { overwriteBefore: snippet.length })
+    },
+  })
+}
+
 // How many characters fit on a line without scrolling sideways
 const columnsOf = (editor) => editor.getLayoutInfo().viewportColumn
 
@@ -45,6 +86,7 @@ for (const [language, { monaco: id }] of Object.entries(LANGUAGES)) {
           ...snippets.map(({ label, detail, body }) => ({
             label,
             detail,
+            documentation: { value: `\`\`\`${id}\n${preview(body)}\n\`\`\`` },
             kind: CompletionItemKind.Snippet,
             insertText: body,
             insertTextRules: CompletionItemInsertTextRule.InsertAsSnippet,
@@ -81,6 +123,14 @@ const defineTheme = (m) => {
       'editorIndentGuide.background1': '#efe4c9',
       'editorWidget.background': '#fffaf0',
       'editorWidget.border': '#c8b07a',
+      'editorSuggestWidget.background': '#fffaf0',
+      'editorSuggestWidget.border': '#c8b07a',
+      'editorSuggestWidget.foreground': '#1f1a12',
+      'editorSuggestWidget.selectedBackground': '#efe4c9',
+      'editorSuggestWidget.selectedForeground': '#1f1a12',
+      'editorSuggestWidget.highlightForeground': '#8a6417',
+      'editorSuggestWidget.focusHighlightForeground': '#8a6417',
+      'list.hoverBackground': '#f6efdf',
     },
   })
   m.editor.defineTheme('maat', {
@@ -106,6 +156,14 @@ const defineTheme = (m) => {
       'editorIndentGuide.background1': '#1c170c',
       'editorWidget.background': '#0d0b08',
       'editorWidget.border': '#4a3d1f',
+      'editorSuggestWidget.background': '#0d0b08',
+      'editorSuggestWidget.border': '#4a3d1f',
+      'editorSuggestWidget.foreground': '#efe6d0',
+      'editorSuggestWidget.selectedBackground': '#2a2210',
+      'editorSuggestWidget.selectedForeground': '#efe6d0',
+      'editorSuggestWidget.highlightForeground': '#d4a94a',
+      'editorSuggestWidget.focusHighlightForeground': '#f0ce7a',
+      'list.hoverBackground': '#1c170c',
       'scrollbarSlider.background': '#4a3d1f66',
       'scrollbarSlider.hoverBackground': '#8c6b2688',
     },
@@ -116,6 +174,7 @@ const defineTheme = (m) => {
 export default function MonacoEditor({ value, onChange, onColumns, language, readOnly = false, label }) {
   const [theme] = useTheme()
   const onMount = (editor) => {
+    if (!readOnly) addTabCompletion(editor)
     if (!onColumns) return
     onColumns(columnsOf(editor))
     editor.onDidLayoutChange(() => onColumns(columnsOf(editor)))
@@ -139,6 +198,9 @@ export default function MonacoEditor({ value, onChange, onColumns, language, rea
         scrollBeyondLastLine: false,
         automaticLayout: true,
         tabSize: 4,
+        snippetSuggestions: 'top',
+        // The suggestion menu and its code preview may reach past the editor's edges
+        fixedOverflowWidgets: true,
         padding: { top: 14, bottom: 14 },
         renderLineHighlight: 'line',
         smoothScrolling: true,
