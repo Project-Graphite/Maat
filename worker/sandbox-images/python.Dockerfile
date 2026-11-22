@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 # No .pyc files, because the container's filesystem is read-only. Unbuffered output, so
 # whatever was printed before a timeout or crash is not lost
