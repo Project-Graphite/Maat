@@ -3,6 +3,5 @@ node_modules
 .env.*
 Dockerfile
 .dockerignore
-sandbox-images
 tests
 README.md

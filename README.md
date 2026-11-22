@@ -137,6 +137,7 @@ sequenceDiagram
 | [load-tests](load-tests) | k6 scripts and the recorded benchmarks |
 | [infra](infra) | MinIO setup, and backup and restore scripts for the Compose stack |
 | [compose.yaml](compose.yaml) | The whole stack, for running locally |
+| [deploy](deploy) | The draft of `platform/deploy/maat/`, and how to ship it |
 | [.env.example](.env.example) | The only settings file, for every service. Copy it to `.env` |
 
 ## Running it locally
@@ -193,7 +194,7 @@ Each folder has its own README with the details.
 
 ## Deploying
 
-Ma'at is deployed on the shared Project Graphite VPS through [platform](https://github.com/Project-Graphite/platform), like the organisation's other projects. The platform's Traefik provides HTTPS and the platform creates the DNS record. Its production Compose file and values belong in `platform/deploy/maat/`. The `compose.yaml` here is for running locally.
+Ma'at is deployed on the shared Project Graphite VPS through [platform](https://github.com/Project-Graphite/platform), like the organisation's other projects. The platform's Traefik provides HTTPS and the platform creates the DNS record. Its production Compose file and values belong in `platform/deploy/maat/`: a draft of them, with the exact steps, is in [deploy](deploy). The `compose.yaml` here is for running locally.
 
 ### Before the first deploy
 
@@ -204,17 +205,18 @@ Needed from an organisation owner:
 - [ ] An agreed exception to the handbook's [rule on untrusted workloads](https://github.com/Project-Graphite/docs/blob/main/recommendations.md)
 - [ ] A rootless Docker daemon for the judge, under its own user with CPU and memory limits, so that the worker never gets the host's main Docker socket
 - [ ] An exception in the platform's deploy agent for that daemon's socket and the jobs folder, on Ma'at's worker only. The agent refuses host paths otherwise. Install it by copying `agent.py` and restarting `graphite-agent`: running `bootstrap.sh` again would overwrite `/etc/graphite/agent.env`
-- [ ] The GHCR packages `maat/backend`, `maat/worker` and `maat/frontend` made public
+- [x] The GHCR packages `maat/backend`, `maat/worker` and `maat/frontend` made public
 - [ ] The secrets below entered in the console, and "operate" access to Ma'at for whoever seeds it
 
 Needed from the project:
 
-- [ ] `deploy/maat/compose.yaml` and `values`, in a pull request to `platform`
-- [ ] A nightly `mongodump` into a volume labelled for backup. The platform copies volume files as they are, which is not a safe backup of a running MongoDB
-- [ ] The two sandbox images built on the judge's daemon, since CI does not publish them
-- [ ] HSTS and compression in nginx, which the platform's Traefik does not add
+- [x] `deploy/maat/` drafted in [deploy](deploy)
+- [ ] That folder in a pull request to `platform`, with a real image tag
+- [x] Verified MongoDB and Redis dumps in volumes labelled for backup, since copying the files of a running database is not safe
+- [x] The two sandbox images built on the judge's daemon by the worker when it starts
+- [x] HSTS and compression in nginx, which the platform's Traefik does not add
 - [ ] A test of every verdict on the rootless daemon, memory limits and CPU pinning included
-- [ ] `deploy` in [.graphite.yml](.graphite.yml) set to `kind: compose` and `host: maat.project-graphite.com`
+- [x] `deploy` in [.graphite.yml](.graphite.yml) set to `kind: compose` and `host: maat.project-graphite.com`
 
 ### Secrets
 
@@ -292,7 +294,7 @@ Running other people's code is the main risk, so the design assumes every submis
 - Requests are stripped of NoSQL operators, text fields are filtered for XSS, and changes are accepted only from the site's own origin
 - Every IP has an hourly request budget, and logins, password checks, signups, reset emails, submissions and uploads have tighter limits of their own
 - Password reset tokens are redacted from the backend and nginx access logs
-- nginx serves the site with a strict Content Security Policy and the usual security headers. In production Traefik adds HTTPS. HSTS is still to be added
+- nginx serves the site with a strict Content Security Policy the usual security headers and HSTS. In production Traefik adds HTTPS
 
 Report a vulnerability privately, as the [security policy](https://github.com/Project-Graphite/.github/blob/main/SECURITY.md) describes.
 

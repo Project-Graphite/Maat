@@ -98,4 +98,6 @@ frontend/
 
 **Production build.** The bundle is built in a multi-stage Docker image and served by nginx as an unprivileged user on port 8080. nginx also proxies API and socket traffic to the backend so everything shares one origin, and looks the backend's address up again as it changes, so redeploying the backend does not need an nginx restart.
 
-**Security headers.** The CSP allows no inline scripts. Inline styles are allowed because React and Monaco set them, and `wasm-unsafe-eval` because the formatters are WebAssembly. The referrer policy sends only the origin, so a password reset link never reaches a log as a referrer.
+**Compression.** The build gzips JavaScript, CSS, WebAssembly and SVG assets once, so nginx serves them without spending CPU, and nginx compresses the pages themselves. API responses are not compressed.
+
+**Security headers.** HSTS tells browsers to stay on HTTPS for a year, and browsers ignore it on plain-HTTP localhost. The CSP allows no inline scripts. Inline styles are allowed because React and Monaco set them, and `wasm-unsafe-eval` because the formatters are WebAssembly. The referrer policy sends only the origin, so a password reset link never reaches a log as a referrer.

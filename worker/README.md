@@ -85,6 +85,8 @@ In a container the worker runs as the `node` user. It needs:
 - The job directory mounted at the same path inside and outside, for example `/opt/maat-jobs:/opt/maat-jobs`. Volume paths in `docker run` are resolved by the host, so the two paths have to agree
 - That directory owned by uid 1000. The `jobs-init` service in Compose does this
 
+On the VPS the worker talks to a separate rootless daemon through `DOCKER_HOST` instead, and its image carries `sandbox-images/` so that it can build the two images there: see [deploy](../deploy).
+
 At startup it runs a trivial program in both sandbox images and exits if either cannot start. While it is healthy it touches `/tmp/worker-healthy` every 10 seconds, which the container's health check reads along with Docker's availability. On `SIGTERM` it finishes the submissions in hand before exiting, for up to two minutes under Compose.
 
 ## Configuration
