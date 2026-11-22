@@ -8,8 +8,8 @@ const boardKey = (contestId) => `contest:${contestId}:board`;
 const userKey = (contestId, userId) => `contest:${contestId}:u:${userId}`;
 
 redis.defineCommand('applyVerdict', {
-    numberOfKeys: 2,
-    lua: `
+	numberOfKeys: 2,
+	lua: `
         local pid = ARGV[1]
         if redis.call('HEXISTS', KEYS[1], pid .. ':ac') == 1 then return 0 end
 
@@ -37,18 +37,17 @@ const IGNORED = new Set(['PENDING', 'RUNNING', 'COMPILE_ERROR', 'SYSTEM_ERROR'])
  * every wrong run before it adds 20 penalty minutes. `minutes` is the time since the contest start.
  */
 export const applyVerdict = async ({ contestId, userId, problemId, verdict, minutes }) => {
-    if (IGNORED.has(verdict)) return false;
+	if (IGNORED.has(verdict)) return false;
 
-    const applied = await redis.applyVerdict(
-        userKey(contestId, userId),
-        boardKey(contestId),
-        String(problemId),
-        String(userId),
-        verdict === 'ACCEPTED' ? 'AC' : 'WA',
-        Math.max(0, Math.floor(minutes)),
-    );
-    return applied === 1;
+	const applied = await redis.applyVerdict(
+		userKey(contestId, userId),
+		boardKey(contestId),
+		String(problemId),
+		String(userId),
+		verdict === 'ACCEPTED' ? 'AC' : 'WA',
+		Math.max(0, Math.floor(minutes)),
+	);
+	return applied === 1;
 };
 
-export const minutesSinceStart = (contest, submittedAt) =>
-    (submittedAt - contest.startsAt) / 60000;
+export const minutesSinceStart = (contest, submittedAt) => (submittedAt - contest.startsAt) / 60000;

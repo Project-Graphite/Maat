@@ -42,7 +42,13 @@ describe('profile pictures', () => {
 		const { agent, user } = await createUser();
 		putAvatar.mockResolvedValueOnce('avatars/a.webp');
 		await upload(agent);
-		putAvatar.mockRejectedValueOnce(Object.assign(new Error('Invalid or corrupted image.'), { statusCode: 400, isOperational: true, status: 'fail' }));
+		putAvatar.mockRejectedValueOnce(
+			Object.assign(new Error('Invalid or corrupted image.'), {
+				statusCode: 400,
+				isOperational: true,
+				status: 'fail',
+			}),
+		);
 
 		const res = await upload(agent);
 

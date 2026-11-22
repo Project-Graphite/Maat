@@ -21,66 +21,65 @@ import contestRouter from './routes/contestRoutes.js';
 import { getProblemSitemap } from './controllers/sitemapController.js';
 
 const XSS_SKIP_FIELDS = new Set([
-    'password',
-    'passwordConfirm',
-    'passwordCurrent',
-    'sourceCode',
-    'statementMd',
-    'input',
-    'expectedOutput',
+	'password',
+	'passwordConfirm',
+	'passwordCurrent',
+	'sourceCode',
+	'statementMd',
+	'input',
+	'expectedOutput',
 ]);
 
 const sanitize = (value) => {
-    if (typeof value === 'string') return filterXSS(value);
-    if (Array.isArray(value)) return value.map(sanitize);
-    if (value && typeof value === 'object') {
-        return Object.fromEntries(
-            Object.entries(value).map(([key, val]) => [
-                key,
-                XSS_SKIP_FIELDS.has(key) ? val : sanitize(val),
-            ]),
-        );
-    }
-    return value;
+	if (typeof value === 'string') return filterXSS(value);
+	if (Array.isArray(value)) return value.map(sanitize);
+	if (value && typeof value === 'object') {
+		return Object.fromEntries(
+			Object.entries(value).map(([key, val]) => [key, XSS_SKIP_FIELDS.has(key) ? val : sanitize(val)]),
+		);
+	}
+	return value;
 };
 
 const app = express();
-app.set('trust proxy', 1);
+app.set('trust proxy', 'loopback, uniquelocal');
 app.use(helmet());
 
 app.get('/health', async (req, res) => {
-    const mongo = mongoose.connection.readyState === 1;
-    const redisUp = redis.status === 'ready';
-    const workers = redisUp ? await judgeQueue.getWorkersCount().catch(() => 0) : 0;
-    res.status(mongo && redisUp ? 200 : 503).json({
-        status: mongo && redisUp ? 'ok' : 'degraded',
-        mongo: mongo ? 'up' : 'down',
-        redis: redisUp ? 'up' : 'down',
-        workers,
-    });
+	const mongo = mongoose.connection.readyState === 1;
+	const redisUp = redis.status === 'ready';
+	const workers = redisUp ? await judgeQueue.getWorkersCount().catch(() => 0) : 0;
+	res.status(mongo && redisUp ? 200 : 503).json({
+		status: mongo && redisUp ? 'ok' : 'degraded',
+		mongo: mongo ? 'up' : 'down',
+		redis: redisUp ? 'up' : 'down',
+		workers,
+	});
 });
 
 app.get('/sitemap-problems.xml', getProblemSitemap);
 
-morgan.token('url', (req) => req.originalUrl.replace(/(\/reset-password\/)[^/?]+/, '$1[redacted]'));
+const redactResetToken = (value) => value?.replace(/(\/reset-password\/)[^/?]+/, '$1[redacted]');
+morgan.token('url', (req) => redactResetToken(req.originalUrl));
+morgan.token('referrer', (req) => redactResetToken(req.get('referer')));
 if (process.env.NODE_ENV !== 'test') {
-    app.use(morgan(process.env.NODE_ENV === 'development' ? 'dev' : 'combined'));
+	app.use(morgan(process.env.NODE_ENV === 'development' ? 'dev' : 'combined'));
 }
 
 app.use('/api', limits.global);
 
 const defaultJson = express.json({ limit: '10kb' });
 const jsonByRoute = [
-    [/^\/api\/v1\/submissions\/?$/, express.json({ limit: '100kb' })],
-    [/^\/api\/v1\/admin\/problems(\/[a-f0-9]{24})?\/?$/i, express.json({ limit: '200kb' })],
+	[/^\/api\/v1\/submissions\/?$/, express.json({ limit: '100kb' })],
+	[/^\/api\/v1\/admin\/problems(\/[a-f0-9]{24})?\/?$/i, express.json({ limit: '200kb' })],
 ];
 
 const TEST_CASE_ROUTE = /^\/api\/v1\/admin\/problems\/[a-f0-9]{24}\/testcases(\/|$)/i;
 
 app.use((req, res, next) => {
-    if (TEST_CASE_ROUTE.test(req.path)) return next();
-    const route = jsonByRoute.find(([pattern]) => pattern.test(req.path));
-    (route ? route[1] : defaultJson)(req, res, next);
+	if (TEST_CASE_ROUTE.test(req.path)) return next();
+	const route = jsonByRoute.find(([pattern]) => pattern.test(req.path));
+	(route ? route[1] : defaultJson)(req, res, next);
 });
 
 app.use(cookieParser());
@@ -88,8 +87,8 @@ app.use(cookieParser());
 app.use(mongoSanitize());
 
 app.use((req, res, next) => {
-    if (req.body) req.body = sanitize(req.body);
-    next();
+	if (req.body) req.body = sanitize(req.body);
+	next();
 });
 
 app.use('/api', sameOrigin);
@@ -102,7 +101,7 @@ app.use('/api/v1/submissions', submissionRouter);
 app.use('/api/v1/contests', contestRouter);
 
 app.all('*', (req, res, next) => {
-    next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+	next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
 app.use(errorController);

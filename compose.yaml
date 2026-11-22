@@ -1,14 +1,32 @@
+name: maat
+
 x-logging: &logging
   driver: json-file
   # Logs hold IP addresses, so they are rotated instead of kept forever
   options:
     max-size: 10m
-    max-file: "3"
+    max-file: "5"
+
+x-service: &service
+  init: true
+  restart: unless-stopped
+  logging: *logging
+  security_opt:
+    - no-new-privileges:true
+
+x-one-off: &one-off
+  restart: "no"
+  logging: *logging
+  security_opt:
+    - no-new-privileges:true
+  deploy:
+    resources:
+      limits: { cpus: "0.25", memory: 128m }
 
 services:
   mongo:
+    <<: *service
     image: mongo:7
-    restart: unless-stopped
     ports:
       - "127.0.0.1:27017:27017"
     environment:
@@ -16,41 +34,40 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}
     volumes:
       - mongo-data:/data/db
+    stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
-      retries: 5
-    logging: *logging
+      retries: 10
     deploy:
       resources:
-        limits:
-          cpus: "1.0"
-          memory: 1g
+        limits: { cpus: "1.0", memory: 1g }
+        reservations: { memory: 256m }
 
   redis:
+    <<: *service
     image: redis:7-alpine
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}"]
+    command: ["sh", "-c", "exec redis-server --appendonly yes --maxmemory 192mb --maxmemory-policy noeviction --requirepass \"$$REDIS_PASSWORD\""]
     ports:
       - "127.0.0.1:6379:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 3s
-      retries: 5
-    logging: *logging
+      retries: 10
     deploy:
       resources:
-        limits:
-          cpus: "0.5"
-          memory: 256m
+        limits: { cpus: "0.5", memory: 256m }
+        reservations: { memory: 64m }
 
   minio:
+    <<: *service
     image: cgr.dev/chainguard/minio@sha256:d88920d6a50bd0b088223b688be3b76c63e6205dbe494437f67ba1240ea12880
-    restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     ports:
       - "127.0.0.1:9000:9000"
@@ -65,103 +82,132 @@ services:
       test: ["CMD", "bash", "/healthcheck.sh"]
       interval: 10s
       timeout: 5s
-      retries: 5
-    logging: *logging
+      retries: 10
     deploy:
       resources:
-        limits:
-          cpus: "0.5"
-          memory: 512m
+        limits: { cpus: "0.5", memory: 512m }
+        reservations: { memory: 128m }
 
   minio-init:
+    <<: *one-off
     image: cgr.dev/chainguard/minio-client@sha256:72f9978d415ea8294d78051fb3aee2fd258d449237633f77f100b5367bb5225d
     depends_on:
-      minio:
-        condition: service_healthy
-    restart: "no"
+      minio: { condition: service_healthy }
     entrypoint: ["/bin/bash", "/init.sh"]
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
       S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET in .env}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
       S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
     volumes:
       - ./infra/minio/init.sh:/init.sh:ro
-    logging: *logging
-    deploy:
-      resources:
-        limits:
-          cpus: "0.25"
-          memory: 128m
+
+  jobs-init:
+    <<: *one-off
+    image: redis:7-alpine
+    entrypoint: ["chown", "1000:1000", "/opt/maat-jobs"]
+    network_mode: none
+    volumes:
+      - /opt/maat-jobs:/opt/maat-jobs
 
   backend:
+    <<: *service
     build: ./backend
-    restart: unless-stopped
-    env_file: .env
+    image: ghcr.io/project-graphite/maat/backend:${IMAGE_TAG:-local}
     environment:
-      DATABASE_LOCAL: mongodb://maat:${MONGO_PASSWORD}@mongo:27017/maat?authSource=admin
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      NODE_ENV: ${NODE_ENV:?set NODE_ENV in .env to development or production}
+      PORT: "5000"
+      DATABASE_LOCAL: mongodb://maat:${MONGO_PASSWORD:?}@mongo:27017/maat?authSource=admin
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-90d}
+      JWT_COOKIE_EXPIRES_IN: ${JWT_COOKIE_EXPIRES_IN:-90}
+      API_RATE_LIMIT: ${API_RATE_LIMIT:-1000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USERNAME: ${EMAIL_USERNAME:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
       S3_ENDPOINT: http://minio:9000
-      API_RATE_LIMIT: ${API_RATE_LIMIT:?set API_RATE_LIMIT in .env}
+      S3_BUCKET: ${S3_BUCKET:?}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?}
     ports:
       - "127.0.0.1:5000:5000"
     depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
-    logging: *logging
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5000/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+      start_interval: 3s
     deploy:
       resources:
-        limits:
-          cpus: "1.0"
-          memory: 512m
+        limits: { cpus: "1.0", memory: 512m }
+        reservations: { memory: 128m }
 
   worker:
+    <<: *service
     build: ./worker
-    restart: on-failure
-    env_file: .env
+    image: ghcr.io/project-graphite/maat/worker:${IMAGE_TAG:-local}
+    group_add:
+      - "${DOCKER_GID:-0}"
     environment:
-      DATABASE_LOCAL: mongodb://maat:${MONGO_PASSWORD}@mongo:27017/maat?authSource=admin
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      DATABASE_LOCAL: mongodb://maat:${MONGO_PASSWORD:?}@mongo:27017/maat?authSource=admin
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
       JOBS_DIR: /opt/maat-jobs
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
       SANDBOX_CPUSET: ${SANDBOX_CPUSET:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/maat-jobs:/opt/maat-jobs
+    stop_grace_period: 2m
     depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    logging: *logging
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      jobs-init: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD-SHELL", "test -n \"$$(find /tmp/worker-healthy -mmin -1)\" && docker version > /dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+      start_interval: 3s
     deploy:
       replicas: 1
       resources:
-        limits:
-          cpus: "0.5"
-          memory: 256m
+        limits: { cpus: "0.5", memory: 256m }
+        reservations: { memory: 96m }
 
   frontend:
+    <<: *service
+    image: ghcr.io/project-graphite/maat/frontend:${IMAGE_TAG:-local}
     build:
       context: ./frontend
       args:
         VITE_SITE_URL: ${VITE_SITE_URL:-http://localhost:8080}
         VITE_CONTACT_EMAIL: ${VITE_CONTACT_EMAIL:-}
-    restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8080:8080"
     depends_on:
-      - backend
-    logging: *logging
+      backend: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 2s
     deploy:
       resources:
-        limits:
-          cpus: "0.25"
-          memory: 128m
+        limits: { cpus: "0.25", memory: 128m }
+        reservations: { memory: 16m }
 
   sandbox-cpp:
     build:

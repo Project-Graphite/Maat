@@ -1,11 +1,11 @@
 import express from 'express';
 import { identify, protect, restrictTo } from '../controllers/authController.js';
 import {
-    getAllContests,
-    getContest,
-    createContest,
-    updateContest,
-    deleteContest,
+	getAllContests,
+	getContest,
+	createContest,
+	updateContest,
+	deleteContest,
 } from '../controllers/contestController.js';
 import { getStandings } from '../controllers/leaderboardController.js';
 

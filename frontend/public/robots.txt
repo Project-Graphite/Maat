@@ -5,5 +5,5 @@ Disallow: /admin
 Disallow: /profile
 Disallow: /submissions
 
-Sitemap: http://localhost:8080/sitemap.xml
-Sitemap: http://localhost:8080/sitemap-problems.xml
+Sitemap: %SITE_URL%/sitemap.xml
+Sitemap: %SITE_URL%/sitemap-problems.xml

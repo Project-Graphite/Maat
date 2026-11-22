@@ -13,7 +13,12 @@ const toAppError = (err) => {
 		return new AppError(DUPLICATE_MESSAGES[field] || 'That value is already taken.', 400);
 	}
 	if (err.name === 'ValidationError') {
-		return new AppError(Object.values(err.errors).map((el) => el.message).join(' '), 400);
+		return new AppError(
+			Object.values(err.errors)
+				.map((el) => el.message)
+				.join(' '),
+			400,
+		);
 	}
 	if (err.name === 'JsonWebTokenError') return new AppError('Your session is not valid. Please log in again.', 401);
 	if (err.name === 'TokenExpiredError') return new AppError('Your session has expired. Please log in again.', 401);
@@ -28,7 +33,9 @@ export default (err, req, res, next) => {
 	const statusCode = error.statusCode || 500;
 
 	if (process.env.NODE_ENV !== 'production') {
-		return res.status(statusCode).json({ status: error.status || 'error', message: error.message, stack: error.stack });
+		return res
+			.status(statusCode)
+			.json({ status: error.status || 'error', message: error.message, stack: error.stack });
 	}
 	if (error.isOperational) {
 		return res.status(statusCode).json({ status: error.status, message: error.message });

@@ -29,14 +29,14 @@ The web app for Ma'at. It is where people read problems, write and submit soluti
 
 ## The verdict panel
 
-This is the part you look at after every submission, so it gets the most care. A submission moves from waiting to being weighed to its final result, and each test appears with its verdict and time. Updates arrive over a WebSocket. A slow poll runs alongside it, so a dropped connection never loses a verdict. If the judge itself fails, the panel says so and asks you to submit again.
+This is the part you look at after every submission, so it gets the most care. A submission moves from waiting to being weighed to its final result, which lists each test with its verdict and time. The result arrives over a WebSocket. A slow poll runs alongside it, so a dropped connection never loses a verdict. If the judge itself fails, the panel says so and asks you to submit again.
 
 Once judged, each test opens to show its full input and expected output, and on the test that failed, what your code printed and its stderr. The failed test opens by itself. The others load their data only when opened, since one test can hold a megabyte. While a contest with the problem is still to come or running, hidden tests say so instead. The panel works the same on the problem page and on the submission's own page.
 
 ## Running it
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 
@@ -48,17 +48,18 @@ Other commands:
 | :--- | :--- |
 | `npm run build` | Builds the production bundle into `dist/` |
 | `npm run preview` | Serves the built bundle locally |
+| `npm run lint` | oxlint, failing on any warning |
 | `npm test` | Component and helper tests (Vitest) |
 | `npm run test:e2e` | Sign up, submit, live verdicts, contests, admin and account deletion in a real browser (Playwright). Needs the full stack running with `docker compose up -d`. Run `npx playwright install chromium` once first |
 
 ## Settings
 
-Read at build time. In Docker they are passed as build arguments from the root `.env`.
+Read at build time from the root `.env`, by `npm run dev`, `npm run build` and Compose alike. The images CI publishes use the defaults in the Dockerfile.
 
 | Variable | Meaning |
 | :--- | :--- |
-| `VITE_SITE_URL` | Public address of the site. Used for the canonical link, social preview and structured data. Default `http://localhost:8080` |
-| `VITE_CONTACT_EMAIL` | Contact address shown on the privacy policy and terms. Empty shows a generic line |
+| `VITE_SITE_URL` | Public address of the site. Used for the canonical link, social preview and structured data. Default `http://localhost:8080`, or `https://maat.project-graphite.com` in the Docker image |
+| `VITE_CONTACT_EMAIL` | Contact address shown on the privacy policy and terms. Empty links to the Project Graphite site instead |
 
 ## Folder layout
 
@@ -66,7 +67,8 @@ Read at build time. In Docker they are passed as build arguments from the root `
 frontend/
 ├── index.html           Default title, description and social tags
 ├── vite.config.js       Dev proxy, site address
-├── nginx.conf           Production server: SPA fallback, API and socket proxy
+├── nginx.conf           Production server: SPA fallback, API and socket proxy, redacted access log
+├── security-headers.conf  CSP and the other security headers
 ├── public/              Favicon, icons, social image, web manifest, robots.txt, sitemap.xml
 └── src/
     ├── main.jsx         App entry point
@@ -92,6 +94,8 @@ frontend/
 
 **Snippets and suggestions.** `src/lib/completions.js` holds, for each language, snippets in VS Code's syntax and a list of keywords and library names. Typing `for` offers a full loop, with a preview, and Tab moves through its placeholders. A snippet's name followed by Tab writes it even with the menu closed. The menu also offers the other words already in the file. Monaco's own word suggestions are off, because Monaco skips them once a language provider answers, and this way no name shows twice. Read-only editors offer nothing. To add a snippet or a name, add an entry to that file.
 
-**Search engines.** `index.html` carries the default tags, because social crawlers do not run scripts. Each page then sets its own title, description and canonical link (`components/Seo.jsx`), and private pages are marked `noindex`. `public/robots.txt` and `public/sitemap.xml` are plain files with the site address written in. **Change `http://localhost:8080` in both to your real domain before deploying.** The sitemap lists the fixed public pages (home, problems, contests, privacy, terms), not each individual problem or contest.
+**Search engines.** `index.html` carries the default tags, because social crawlers do not run scripts. Each page then sets its own title, description and canonical link (`components/Seo.jsx`), and private pages are marked `noindex`. `public/robots.txt` and `public/sitemap.xml` use `%SITE_URL%`, which the build replaces with `VITE_SITE_URL`. The sitemap lists the fixed public pages (home, problems, contests, privacy, terms), not each individual problem or contest.
 
-**Production build.** The bundle is built in a multi-stage Docker image and served by nginx, which also proxies API and socket traffic to the backend so everything shares one origin.
+**Production build.** The bundle is built in a multi-stage Docker image and served by nginx as an unprivileged user on port 8080. nginx also proxies API and socket traffic to the backend so everything shares one origin, and looks the backend's address up again as it changes, so redeploying the backend does not need an nginx restart.
+
+**Security headers.** The CSP allows no inline scripts. Inline styles are allowed because React and Monaco set them, and `wasm-unsafe-eval` because the formatters are WebAssembly. The referrer policy sends only the origin, so a password reset link never reaches a log as a referrer.

@@ -19,8 +19,7 @@ const validateData = (data) => {
 	for (const field of ['input', 'expectedOutput']) {
 		const value = data[field];
 		if (value === undefined) continue;
-		if (typeof value !== 'string')
-			throw new AppError(`${field} must be a string.`, 400);
+		if (typeof value !== 'string') throw new AppError(`${field} must be a string.`, 400);
 		if (Buffer.byteLength(value) > MAX_FIELD_BYTES) {
 			throw new AppError(`${field} must be 1MB or smaller.`, 400);
 		}
@@ -31,18 +30,14 @@ const validateData = (data) => {
 };
 
 const lastOrdinal = async (problemId) => {
-	const last = await TestCase.findOne({ problemId })
-		.sort('-ordinal')
-		.select('ordinal');
+	const last = await TestCase.findOne({ problemId }).sort('-ordinal').select('ordinal');
 	return last ? last.ordinal : 0;
 };
 
 const getTestCases = catchAsync(async (req, res) => {
 	await assertProblemExists(req.params.problemId);
 
-	const testCases = await TestCase.find({ problemId: req.params.problemId })
-		.select(WITH_DATA)
-		.sort('ordinal');
+	const testCases = await TestCase.find({ problemId: req.params.problemId }).select(WITH_DATA).sort('ordinal');
 
 	res.status(200).json({
 		status: 'success',
@@ -57,8 +52,7 @@ const createTestCase = catchAsync(async (req, res) => {
 
 	const data = pick(req.body, ...FIELDS, 'ordinal');
 	validateData(data);
-	if (data.ordinal === undefined)
-		data.ordinal = (await lastOrdinal(problemId)) + 1;
+	if (data.ordinal === undefined) data.ordinal = (await lastOrdinal(problemId)) + 1;
 
 	const testCase = await TestCase.create({ ...data, problemId });
 
@@ -69,14 +63,8 @@ const createTestCases = catchAsync(async (req, res, next) => {
 	const { problemId } = req.params;
 	const { testCases } = req.body;
 
-	if (
-		!Array.isArray(testCases) ||
-		testCases.length === 0 ||
-		testCases.length > MAX_BULK
-	) {
-		return next(
-			new AppError(`Provide between 1 and ${MAX_BULK} test cases.`, 400),
-		);
+	if (!Array.isArray(testCases) || testCases.length === 0 || testCases.length > MAX_BULK) {
+		return next(new AppError(`Provide between 1 and ${MAX_BULK} test cases.`, 400));
 	}
 	await assertProblemExists(problemId);
 
@@ -101,8 +89,7 @@ const updateTestCase = catchAsync(async (req, res, next) => {
 		_id: req.params.id,
 		problemId: req.params.problemId,
 	}).select(WITH_DATA);
-	if (!testCase)
-		return next(new AppError('No test case found with that ID.', 404));
+	if (!testCase) return next(new AppError('No test case found with that ID.', 404));
 
 	const data = pick(req.body, ...FIELDS, 'ordinal');
 	validateData(data);
@@ -117,16 +104,9 @@ const deleteTestCase = catchAsync(async (req, res, next) => {
 		_id: req.params.id,
 		problemId: req.params.problemId,
 	});
-	if (!testCase)
-		return next(new AppError('No test case found with that ID.', 404));
+	if (!testCase) return next(new AppError('No test case found with that ID.', 404));
 
 	res.status(204).send();
 });
 
-export {
-	getTestCases,
-	createTestCase,
-	createTestCases,
-	updateTestCase,
-	deleteTestCase,
-};
+export { getTestCases, createTestCase, createTestCases, updateTestCase, deleteTestCase };

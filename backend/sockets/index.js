@@ -17,119 +17,118 @@ const submissionRoom = (id) => `submission:${id}`;
 const contestRoom = (id) => `contest:${id}`;
 
 const guarded = (handler) => async (id, ack) => {
-    const reply = typeof ack === 'function' ? ack : () => {};
-    try {
-        await handler(id, reply);
-    } catch (err) {
-        if (err.isOperational) return reply({ ok: false, message: err.message });
+	const reply = typeof ack === 'function' ? ack : () => {};
+	try {
+		await handler(id, reply);
+	} catch (err) {
+		if (err.isOperational) return reply({ ok: false, message: err.message });
 
-        console.log('Socket error:', err.message);
-        reply({ ok: false, message: 'Something went wrong.' });
-    }
+		console.log('Socket error:', err.message);
+		reply({ ok: false, message: 'Something went wrong.' });
+	}
 };
 
 export const initSockets = (httpServer) => {
-    const io = new Server(httpServer, {
-        cors: { origin: [...allowedOrigins], credentials: true },
-        allowRequest: (req, callback) => {
-            const origin = req.headers.origin;
-            if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-            callback('Origin not allowed', false);
-        },
-    });
+	const io = new Server(httpServer, {
+		cors: { origin: [...allowedOrigins], credentials: true },
+		allowRequest: (req, callback) => {
+			const origin = req.headers.origin;
+			if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+			callback('Origin not allowed', false);
+		},
+	});
 
-    io.engine.use(cookieParser());
-    io.engine.use(identify);
-    io.use((socket, next) => {
-        if (!socket.request.user) return next(new AppError('Please log in.', 401));
-        socket.data.user = socket.request.user;
-        next();
-    });
+	io.engine.use(cookieParser());
+	io.engine.use(identify);
+	io.use((socket, next) => {
+		if (!socket.request.user) return next(new AppError('Please log in.', 401));
+		socket.data.user = socket.request.user;
+		next();
+	});
 
-    io.on('connection', (socket) => {
-        const user = socket.data.user;
+	io.on('connection', (socket) => {
+		const user = socket.data.user;
 
-        const joinRoom = (room) => {
-            if (socket.rooms.size >= MAX_ROOMS_PER_SOCKET) {
-                throw new AppError('Watching too many things at once.', 429);
-            }
-            socket.join(room);
-        };
+		const joinRoom = (room) => {
+			if (socket.rooms.size >= MAX_ROOMS_PER_SOCKET) {
+				throw new AppError('Watching too many things at once.', 429);
+			}
+			socket.join(room);
+		};
 
-        socket.on(
-            'submission:watch',
-            guarded(async (id, reply) => {
-                if (!isObjectId(id)) throw new AppError('Invalid submission ID.', 400);
+		socket.on(
+			'submission:watch',
+			guarded(async (id, reply) => {
+				if (!isObjectId(id)) throw new AppError('Invalid submission ID.', 400);
 
-                const submission = await Submission.findById(id).select(
-                    'userId contestId problemId status compileOutput tests judgedAt',
-                );
-                const allowed =
-                    submission && (isAdmin(user) || submission.userId.equals(user._id));
-                if (!allowed) throw new AppError('No submission found with that ID.', 404);
-                joinRoom(submissionRoom(id));
+				const submission = await Submission.findById(id).select(
+					'userId contestId problemId status compileOutput tests judgedAt',
+				);
+				const allowed = submission && (isAdmin(user) || submission.userId.equals(user._id));
+				if (!allowed) throw new AppError('No submission found with that ID.', 404);
+				joinRoom(submissionRoom(id));
 
-                reply({ ok: true, status: submission.status });
+				reply({ ok: true, status: submission.status });
 
-                if (FINAL_STATUSES.includes(submission.status)) {
-                    socket.emit('submission:verdict', {
-                        submissionId: submission.id,
-                        userId: submission.userId,
-                        contestId: submission.contestId,
-                        problemId: submission.problemId,
-                        status: submission.status,
-                        compileOutput: submission.compileOutput,
-                        tests: submission.tests,
-                        judgedAt: submission.judgedAt,
-                    });
-                }
-            }),
-        );
+				if (FINAL_STATUSES.includes(submission.status)) {
+					socket.emit('submission:verdict', {
+						submissionId: submission.id,
+						userId: submission.userId,
+						contestId: submission.contestId,
+						problemId: submission.problemId,
+						status: submission.status,
+						compileOutput: submission.compileOutput,
+						tests: submission.tests,
+						judgedAt: submission.judgedAt,
+					});
+				}
+			}),
+		);
 
-        socket.on('submission:unwatch', (id) => {
-            if (isObjectId(id)) socket.leave(submissionRoom(id));
-        });
+		socket.on('submission:unwatch', (id) => {
+			if (isObjectId(id)) socket.leave(submissionRoom(id));
+		});
 
-        socket.on(
-            'contest:watch',
-            guarded(async (id, reply) => {
-                if (!isObjectId(id)) throw new AppError('Invalid contest ID.', 400);
+		socket.on(
+			'contest:watch',
+			guarded(async (id, reply) => {
+				if (!isObjectId(id)) throw new AppError('Invalid contest ID.', 400);
 
-                const contest = await Contest.findById(id).select('startsAt');
-                if (!contest) throw new AppError('No contest found with that ID.', 404);
-                if ((!contest.startsAt || contest.startsAt > new Date()) && !isAdmin(user)) {
-                    throw new AppError('This contest has not started yet.', 403);
-                }
-                joinRoom(contestRoom(id));
-                reply({ ok: true });
-            }),
-        );
+				const contest = await Contest.findById(id).select('startsAt');
+				if (!contest) throw new AppError('No contest found with that ID.', 404);
+				if ((!contest.startsAt || contest.startsAt > new Date()) && !isAdmin(user)) {
+					throw new AppError('This contest has not started yet.', 403);
+				}
+				joinRoom(contestRoom(id));
+				reply({ ok: true });
+			}),
+		);
 
-        socket.on('contest:unwatch', (id) => {
-            if (isObjectId(id)) socket.leave(contestRoom(id));
-        });
-    });
+		socket.on('contest:unwatch', (id) => {
+			if (isObjectId(id)) socket.leave(contestRoom(id));
+		});
+	});
 
-    const subscriber = createRedis();
-    subscriber.subscribe(VERDICT_CHANNEL).catch((err) => {
-        console.log('Could not subscribe to verdicts:', err.message);
-    });
-    subscriber.on('message', (channel, message) => {
-        let verdict;
-        try {
-            verdict = JSON.parse(message);
-        } catch {
-            return console.log('Ignoring a malformed verdict message');
-        }
+	const subscriber = createRedis({ maxRetriesPerRequest: null });
+	subscriber.subscribe(VERDICT_CHANNEL).catch((err) => {
+		console.log('Could not subscribe to verdicts:', err.message);
+	});
+	subscriber.on('message', (channel, message) => {
+		let verdict;
+		try {
+			verdict = JSON.parse(message);
+		} catch {
+			return console.log('Ignoring a malformed verdict message');
+		}
 
-        io.to(submissionRoom(verdict.submissionId)).emit('submission:verdict', verdict);
+		io.to(submissionRoom(verdict.submissionId)).emit('submission:verdict', verdict);
 
-        if (verdict.contestId) {
-            io.to(contestRoom(verdict.contestId)).emit('contest:update', {
-                contestId: verdict.contestId,
-            });
-        }
-    });
+		if (verdict.contestId) {
+			io.to(contestRoom(verdict.contestId)).emit('contest:update', {
+				contestId: verdict.contestId,
+			});
+		}
+	});
 
-    return io;
+	return io;
 };

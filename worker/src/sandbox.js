@@ -8,6 +8,8 @@ const execFileAsync = promisify(execFile);
 const OUTPUT_LIMIT_BYTES = 1024 * 1024;
 const STDERR_LIMIT_BYTES = 64 * 1024;
 const COMPILE_OUTPUT_LIMIT_CHARS = 8 * 1024;
+const BACKSTOP_MS = 10_000;
+const FILE_LIMIT_BYTES = 64 * 1024 * 1024;
 const COMPILE = { timeoutMs: 15_000, memoryMb: 512, tmpfsMb: 128 };
 
 export const LANGUAGES = {
@@ -42,22 +44,18 @@ const release = () => {
 	else active--;
 };
 
-const wasOomKilled = async (name) => {
-	try {
-		const { stdout } = await execFileAsync('docker', [
-			'inspect',
-			'-f',
-			'{{.State.OOMKilled}}',
-			name,
-		]);
-		return stdout.trim() === 'true';
-	} catch {
-		return false;
-	}
+const containerState = async (name) => {
+	const format = '{{.State.Status}} {{.State.OOMKilled}} {{.State.StartedAt}} {{.State.FinishedAt}}';
+	const { stdout } = await execFileAsync('docker', ['inspect', '-f', format, name]);
+	const [status, oomKilled, startedAt, finishedAt] = stdout.trim().split(' ');
+	return {
+		ran: status === 'exited',
+		oomKilled: oomKilled === 'true',
+		timeMs: Date.parse(finishedAt) - Date.parse(startedAt),
+	};
 };
 
-const removeContainer = (name) =>
-	execFileAsync('docker', ['rm', '-f', name]).catch(() => {});
+const removeContainer = (name) => execFileAsync('docker', ['rm', '-f', name]).catch(() => {});
 
 const STALE_AFTER_MS = 2 * 60 * 1000;
 
@@ -86,16 +84,12 @@ export const removeStaleSandboxes = async () => {
 				await removeContainer(id);
 				removed++;
 			}
-		} catch {
-		}
+		} catch {}
 	}
 	return removed;
 };
 
-const execute = (
-	name,
-	{ image, command, workDir, writable, stdin, timeoutMs, memoryMb, tmpfsMb },
-) =>
+const execute = (name, { image, command, workDir, writable, stdin, timeoutMs, memoryMb, tmpfsMb }) =>
 	new Promise((resolve, reject) => {
 		// No --rm: the container has to survive its exit so we can ask whether it was OOM-killed
 		const args = [
@@ -111,15 +105,17 @@ const execute = (
 			'--pids-limit=64',
 			'--cap-drop=ALL',
 			'--security-opt=no-new-privileges',
+			`--ulimit=fsize=${FILE_LIMIT_BYTES}:${FILE_LIMIT_BYTES}`,
+			'--ulimit=core=0:0',
+			'--pull=never',
+			'--log-driver=none',
 			...(process.env.SANDBOX_CPUSET ? [`--cpuset-cpus=${process.env.SANDBOX_CPUSET}`] : []),
 			'--tmpfs',
 			`/tmp:rw,size=${tmpfsMb}m`,
 		];
-		if (workDir)
-			args.push('-v', `${workDir}:/work:${writable ? 'rw' : 'ro'}`);
-		args.push('-w', '/work', image, ...command);
+		if (workDir) args.push('-v', `${workDir}:/work:${writable ? 'rw' : 'ro'}`);
+		args.push('-w', '/work', image, 'timeout', '--signal=KILL', String(timeoutMs / 1000), ...command);
 
-		const started = Date.now();
 		// spawn with an argument array: nothing in a submission can reach a shell
 		const child = spawn('docker', args, {
 			stdio: ['pipe', 'pipe', 'pipe'],
@@ -129,7 +125,7 @@ const execute = (
 		const err = [];
 		let outBytes = 0;
 		let errBytes = 0;
-		let timedOut = false;
+		let backstopped = false;
 		let truncated = false;
 		let closed = false;
 
@@ -141,9 +137,9 @@ const execute = (
 		};
 
 		const timer = setTimeout(() => {
-			timedOut = true;
+			backstopped = true;
 			kill();
-		}, timeoutMs);
+		}, timeoutMs + BACKSTOP_MS);
 
 		child.stdout.on('data', (chunk) => {
 			if (truncated) return;
@@ -182,9 +178,8 @@ const execute = (
 				stdout: Buffer.concat(out).toString(),
 				stderr: Buffer.concat(err).toString(),
 				exitCode,
-				timedOut,
+				backstopped,
 				truncated,
-				timeMs: Date.now() - started,
 			});
 		});
 	});
@@ -193,6 +188,7 @@ const execute = (
  * Runs `command` in a throwaway container with no network, a read-only filesystem and hard
  * memory, CPU and process limits. `workDir` is mounted at /work, read-only unless `writable`.
  * Resolves with { stdout, stderr, exitCode, timedOut, truncated, oomKilled, timeMs }.
+ * Rejects when the container could not run, which is never the program's fault.
  */
 export const runInSandbox = async ({
 	image,
@@ -207,7 +203,7 @@ export const runInSandbox = async ({
 	await acquire();
 	const name = `maat-${randomBytes(8).toString('hex')}`;
 	try {
-		const result = await execute(name, {
+		const { backstopped, ...result } = await execute(name, {
 			image,
 			command,
 			workDir,
@@ -217,8 +213,14 @@ export const runInSandbox = async ({
 			memoryMb,
 			tmpfsMb,
 		});
-		result.oomKilled = await wasOomKilled(name);
-		return result;
+		const state = await containerState(name).catch(() => null);
+		if (!state?.ran) throw new Error(`Could not start a ${image} sandbox: ${result.stderr.trim()}`);
+
+		const { oomKilled, timeMs } = state;
+		const killed = result.exitCode === 137 && !oomKilled && !result.truncated;
+		const timedOut = killed && timeMs >= timeoutMs;
+		if (backstopped && killed && !timedOut) throw new Error(`The ${image} sandbox was too slow to start`);
+		return { ...result, oomKilled, timedOut, timeMs };
 	} finally {
 		await removeContainer(name);
 		release();
@@ -228,6 +230,12 @@ export const runInSandbox = async ({
 // Starting a container costs ~100-300ms, which would make fast solutions look slow. Run a
 // trivial command a few times at startup and subtract the typical cost from reported times
 let baselineMs = 0;
+
+export const checkImages = async () => {
+	for (const { image } of Object.values(LANGUAGES)) {
+		await runInSandbox({ image, command: ['true'], timeoutMs: 30_000, memoryMb: 64 });
+	}
+};
 
 export const measureBaseline = async (samples = 5) => {
 	const times = [];
@@ -264,33 +272,25 @@ export const compile = async ({ language, workDir }) => {
 	});
 	return {
 		ok: result.exitCode === 0 && !result.timedOut && !result.oomKilled,
-		output: (result.stderr + result.stdout).slice(
-			0,
-			COMPILE_OUTPUT_LIMIT_CHARS,
-		),
+		output: (result.stderr + result.stdout).slice(0, COMPILE_OUTPUT_LIMIT_CHARS),
 		timedOut: result.timedOut,
 	};
 };
 
 /**
- * Runs the compiled program on one input. The time limit applies to the program itself, so the
- * container startup cost is added to the deadline and taken off the reported time.
+ * Runs the compiled program on one input. The time limit is enforced inside the container, so
+ * setup and teardown never count. The startup cost is only taken off the reported time.
  */
-export const run = async ({
-	language,
-	workDir,
-	input,
-	timeLimitMs,
-	memoryLimitMb,
-}) => {
+export const run = async ({ language, workDir, input, timeLimitMs, memoryLimitMb }) => {
 	const lang = LANGUAGES[language];
 	const result = await runInSandbox({
 		image: lang.image,
 		command: lang.run,
 		workDir,
 		stdin: input,
-		timeoutMs: timeLimitMs + baselineMs,
+		timeoutMs: timeLimitMs,
 		memoryMb: memoryLimitMb,
 	});
-	return { ...result, timeMs: Math.max(0, result.timeMs - baselineMs) };
+	const timeMs = result.timedOut ? timeLimitMs : Math.min(timeLimitMs, Math.max(0, result.timeMs - baselineMs));
+	return { ...result, timeMs };
 };

@@ -205,7 +205,12 @@ describe('test data of a submission', () => {
 
 		const res = await agent.get(testUrl(submission, 1));
 		expect(res.status).toBe(200);
-		expect(res.body.data.test).toMatchObject({ ordinal: 1, verdict: 'ACCEPTED', input: '1 2\n', expectedOutput: '3\n' });
+		expect(res.body.data.test).toMatchObject({
+			ordinal: 1,
+			verdict: 'ACCEPTED',
+			input: '1 2\n',
+			expectedOutput: '3\n',
+		});
 		expect(res.body.data.test.output).toBeUndefined();
 	});
 
@@ -262,7 +267,10 @@ describe('test data of a submission', () => {
 		// Admins can always look
 		expect((await (await createAdmin()).agent.get(testUrl(submission, 2))).status).toBe(200);
 
-		await Contest.updateOne({ _id: contest._id }, { startsAt: new Date(Date.now() - 2 * HOUR), endsAt: new Date(Date.now() - HOUR) });
+		await Contest.updateOne(
+			{ _id: contest._id },
+			{ startsAt: new Date(Date.now() - 2 * HOUR), endsAt: new Date(Date.now() - HOUR) },
+		);
 		expect((await agent.get(testUrl(submission, 2))).status).toBe(200);
 	});
 });

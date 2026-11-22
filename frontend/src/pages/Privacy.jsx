@@ -3,7 +3,8 @@ import Seo from '../components/Seo.jsx'
 
 const CONTACT = __CONTACT_EMAIL__
 
-export const Contact = () => (CONTACT ? <a href={`mailto:${CONTACT}`}>{CONTACT}</a> : <span>us</span>)
+export const Contact = () =>
+  CONTACT ? <a href={`mailto:${CONTACT}`}>{CONTACT}</a> : <a href="https://project-graphite.com">the Project Graphite team</a>
 
 export default function Privacy() {
   return (
@@ -15,7 +16,7 @@ export default function Privacy() {
       />
       <article className="legal">
         <h1>Privacy policy</h1>
-        <p className="muted">Last updated 28 October 2026</p>
+        <p className="muted">Last updated 22 November 2026</p>
 
         <p style={{ marginTop: 24 }}>
           This page explains what we keep about you when you use Ma’at, why, and what you can do about it. We
@@ -77,7 +78,8 @@ export default function Privacy() {
         <p>
           You can delete your account from <Link to="/profile">your account page</Link>. We keep it for 30 days in
           case you change your mind: log in during that time and everything is back as it was. After 30 days we
-          delete your account, your photo, your solutions and your contest results for good.
+          delete your account, your photo, your solutions and your contest results. Copies in our backups are
+          removed within another 15 days.
         </p>
 
         <h2>Your rights</h2>

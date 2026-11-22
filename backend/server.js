@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './utils/env.js';
 import mongoose from 'mongoose';
 
 process.on('unhandledRejection', (err) => {
@@ -29,12 +29,13 @@ mongoose
 	})
 	.catch((err) => {
 		console.log('DB connection error:', err);
+		process.exit(1);
 	});
 
 storage
-    .checkConnection()
-    .then(() => console.log('File storage connection successful!'))
-    .catch((err) => console.log('File storage connection error:', err.name, err.message));
+	.checkConnection()
+	.then(() => console.log('File storage connection successful!'))
+	.catch((err) => console.log('File storage connection error:', err.name, err.message));
 
 const port = process.env.PORT || 5000;
 const server = app.listen(port, () => {

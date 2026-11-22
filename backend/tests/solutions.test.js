@@ -43,7 +43,10 @@ describe('trial runs on the examples', () => {
 		const { agent } = await createUser();
 		const problem = await createProblem();
 		await createTestCase(problem._id);
-		const job = { waitUntilFinished: vi.fn().mockRejectedValue(new Error('timeout')), remove: vi.fn().mockResolvedValue() };
+		const job = {
+			waitUntilFinished: vi.fn().mockRejectedValue(new Error('timeout')),
+			remove: vi.fn().mockResolvedValue(),
+		};
 		judgeQueue.add.mockResolvedValueOnce(job);
 
 		const res = await agent.post('/api/v1/submissions/run').send(body(problem));
@@ -91,7 +94,9 @@ describe('sharing a solution', () => {
 		const problem = await createProblem();
 		await createTestCase(problem._id);
 
-		const sent = await agent.post('/api/v1/submissions').send({ problemId: problem.id, language: 'python3', sourceCode: 'x' });
+		const sent = await agent
+			.post('/api/v1/submissions')
+			.send({ problemId: problem.id, language: 'python3', sourceCode: 'x' });
 
 		expect((await Submission.findById(sent.body.data.submission._id)).public).toBe(false);
 	});

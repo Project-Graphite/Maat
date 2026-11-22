@@ -19,7 +19,7 @@ The load comes from the same machine, so k6 competes for it too. Treat the figur
 
 ## Running them
 
-You need Docker. k6 runs from its official image, so nothing else has to be installed.
+You need Docker, bash, and the stack set up for local development as in the [root README](../README.md#running-it-locally). Never run this against production: it creates accounts and lifts the rate limit. k6 runs from its official image, so nothing else has to be installed.
 
 ```sh
 bash load-tests/run.sh

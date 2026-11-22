@@ -1,6 +1,9 @@
 node_modules
 .env
 .env.*
-!.env.example
 Dockerfile
 .dockerignore
+tests
+vitest.config.js
+.prettierrc
+.prettierignore

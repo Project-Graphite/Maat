@@ -1,7 +1,11 @@
 version: 2
 updates:
   - package-ecosystem: docker
-    directory: /web
+    directories:
+      - /backend
+      - /frontend
+      - /worker
+      - /worker/sandbox-images
     schedule:
       interval: weekly
   - package-ecosystem: github-actions

@@ -1,13 +1,13 @@
 import express from 'express';
 import {
-    signup,
-    login,
-    logout,
-    identify,
-    protect,
-    forgotPassword,
-    resetPassword,
-    updatePassword,
+	signup,
+	login,
+	logout,
+	identify,
+	protect,
+	forgotPassword,
+	resetPassword,
+	updatePassword,
 } from '../controllers/authController.js';
 import * as limits from '../utils/rateLimits.js';
 

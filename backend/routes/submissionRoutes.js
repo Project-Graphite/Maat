@@ -1,12 +1,12 @@
 import express from 'express';
 import { protect } from '../controllers/authController.js';
 import {
-    createSubmission,
-    runCode,
-    updateSubmission,
-    getSubmission,
-    getSubmissionTest,
-    getMySubmissions,
+	createSubmission,
+	runCode,
+	updateSubmission,
+	getSubmission,
+	getSubmissionTest,
+	getMySubmissions,
 } from '../controllers/submissionController.js';
 import * as limits from '../utils/rateLimits.js';
 

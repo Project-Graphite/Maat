@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -9,4 +9,5 @@ RUN npm ci --omit=dev
 
 COPY src ./src
 
+USER node
 CMD ["node", "src/server.js"]

@@ -14,210 +14,211 @@ const LANGUAGES = Submission.schema.path('language').enumValues;
 const RUN_TIMEOUT_MS = 60_000;
 
 const checkContest = async (contestId, problemId) => {
-    if (!isObjectId(contestId)) throw new AppError('Invalid contest ID.', 400);
+	if (!isObjectId(contestId)) throw new AppError('Invalid contest ID.', 400);
 
-    const contest = await Contest.findById(contestId);
-    if (!contest) throw new AppError('No contest found with that ID.', 404);
+	const contest = await Contest.findById(contestId);
+	if (!contest) throw new AppError('No contest found with that ID.', 404);
 
-    const now = new Date();
-    if (!contest.startsAt || now < contest.startsAt || now >= contest.endsAt) {
-        throw new AppError('This contest is not running.', 403);
-    }
-    if (!contest.problems.some((p) => p.problemId.equals(problemId))) {
-        throw new AppError('That problem is not part of this contest.', 400);
-    }
+	const now = new Date();
+	if (!contest.startsAt || now < contest.startsAt || now >= contest.endsAt) {
+		throw new AppError('This contest is not running.', 403);
+	}
+	if (!contest.problems.some((p) => p.problemId.equals(problemId))) {
+		throw new AppError('That problem is not part of this contest.', 400);
+	}
 };
 
 // The checks a submission and a trial run share. Throws an AppError when something is wrong
 const checkCode = async ({ problemId, contestId, language, sourceCode }, user) => {
-    if (!isObjectId(problemId)) throw new AppError('Invalid problem ID.', 400);
-    if (!LANGUAGES.includes(language)) {
-        throw new AppError(`Language must be one of: ${LANGUAGES.join(', ')}.`, 400);
-    }
-    if (typeof sourceCode !== 'string' || !sourceCode.trim()) {
-        throw new AppError('Please provide your source code.', 400);
-    }
-    if (Buffer.byteLength(sourceCode) > MAX_SOURCE_BYTES) {
-        throw new AppError('Source code must be 64KB or smaller.', 400);
-    }
+	if (!isObjectId(problemId)) throw new AppError('Invalid problem ID.', 400);
+	if (!LANGUAGES.includes(language)) {
+		throw new AppError(`Language must be one of: ${LANGUAGES.join(', ')}.`, 400);
+	}
+	if (typeof sourceCode !== 'string' || !sourceCode.trim()) {
+		throw new AppError('Please provide your source code.', 400);
+	}
+	if (Buffer.byteLength(sourceCode) > MAX_SOURCE_BYTES) {
+		throw new AppError('Source code must be 64KB or smaller.', 400);
+	}
 
-    const problem = await Problem.findById(problemId).select('visible');
-    if (!problem || (!problem.visible && !isAdmin(user) && contestId === undefined)) {
-        throw new AppError('No problem found with that ID.', 404);
-    }
+	const problem = await Problem.findById(problemId).select('visible');
+	if (!problem || (!problem.visible && !isAdmin(user) && contestId === undefined)) {
+		throw new AppError('No problem found with that ID.', 404);
+	}
 
-    if (!(await TestCase.exists({ problemId }))) {
-        throw new AppError('This problem has no test cases yet.', 400);
-    }
-    if (contestId !== undefined) await checkContest(contestId, problemId);
+	if (!(await TestCase.exists({ problemId }))) {
+		throw new AppError('This problem has no test cases yet.', 400);
+	}
+	if (contestId !== undefined) await checkContest(contestId, problemId);
 };
 
 const createSubmission = catchAsync(async (req, res, next) => {
-    const { problemId, contestId, language, sourceCode } = req.body;
-    await checkCode(req.body, req.user);
+	const { problemId, contestId, language, sourceCode } = req.body;
+	await checkCode(req.body, req.user);
 
-    const submission = await Submission.create({
-        userId: req.user._id,
-        problemId,
-        contestId,
-        language,
-        sourceCode,
-        public: req.body.public === true,
-    });
+	const submission = await Submission.create({
+		userId: req.user._id,
+		problemId,
+		contestId,
+		language,
+		sourceCode,
+		public: req.body.public === true,
+	});
 
-    try {
-        await judgeQueue.add(
-            'judge',
-            { submissionId: submission.id },
-            { attempts: 2, removeOnComplete: 1000, removeOnFail: 1000 },
-        );
-    } catch (err) {
-        await Submission.deleteOne({ _id: submission._id });
-        return next(new AppError('The judge is unavailable right now. Please try again.', 503));
-    }
-    const judgeOnline = (await judgeQueue.getWorkersCount().catch(() => 0)) > 0;
+	try {
+		await judgeQueue.add(
+			'judge',
+			{ submissionId: submission.id },
+			{ attempts: 2, removeOnComplete: 1000, removeOnFail: 1000 },
+		);
+	} catch (err) {
+		await Submission.deleteOne({ _id: submission._id });
+		return next(new AppError('The judge is unavailable right now. Please try again.', 503));
+	}
+	const judgeOnline = (await judgeQueue.getWorkersCount().catch(() => 0)) > 0;
 
-    res.status(202).json({
-        status: 'success',
-        data: {
-            submission: {
-                _id: submission._id,
-                status: submission.status,
-                submittedAt: submission.submittedAt,
-            },
-            judgeOnline,
-        },
-    });
+	res.status(202).json({
+		status: 'success',
+		data: {
+			submission: {
+				_id: submission._id,
+				status: submission.status,
+				submittedAt: submission.submittedAt,
+			},
+			judgeOnline,
+		},
+	});
 });
 
 // Runs the code on the problem's examples and answers with the result. Nothing is stored
 const runCode = catchAsync(async (req, res, next) => {
-    const { problemId, language, sourceCode } = req.body;
-    await checkCode(req.body, req.user);
+	const { problemId, language, sourceCode } = req.body;
+	await checkCode(req.body, req.user);
 
-    if (!(await judgeQueue.getWorkersCount().catch(() => 0))) {
-        return next(new AppError('No judge is running right now, so your code cannot be run. Please try again later.', 503));
-    }
+	if (!(await judgeQueue.getWorkersCount().catch(() => 0))) {
+		return next(
+			new AppError('No judge is running right now, so your code cannot be run. Please try again later.', 503),
+		);
+	}
 
-    let job;
-    try {
-        job = await judgeQueue.add(
-            'run',
-            { problemId, language, sourceCode },
-            { attempts: 1, removeOnComplete: { age: 300 }, removeOnFail: { age: 300 } },
-        );
-    } catch {
-        return next(new AppError('The judge is unavailable right now. Please try again.', 503));
-    }
+	let job;
+	try {
+		job = await judgeQueue.add(
+			'run',
+			{ problemId, language, sourceCode },
+			{ attempts: 1, removeOnComplete: { age: 300 }, removeOnFail: { age: 300 } },
+		);
+	} catch {
+		return next(new AppError('The judge is unavailable right now. Please try again.', 503));
+	}
 
-    try {
-        const run = await job.waitUntilFinished(judgeEvents, RUN_TIMEOUT_MS);
-        res.status(200).json({ status: 'success', data: { run } });
-    } catch {
-        await job.remove().catch(() => {});
-        next(new AppError('The judge is busy, so your code could not be run. Please try again in a moment.', 503));
-    }
+	try {
+		const run = await job.waitUntilFinished(judgeEvents, RUN_TIMEOUT_MS);
+		res.status(200).json({ status: 'success', data: { run } });
+	} catch {
+		await job.remove().catch(() => {});
+		next(new AppError('The judge is busy, so your code could not be run. Please try again in a moment.', 503));
+	}
 });
 
 // Only the author can share or hide a submission
 const updateSubmission = catchAsync(async (req, res, next) => {
-    if (typeof req.body.public !== 'boolean') {
-        return next(new AppError('Say whether the submission is public.', 400));
-    }
-    const submission = isObjectId(req.params.id)
-        ? await Submission.findOneAndUpdate(
-              { _id: req.params.id, userId: req.user._id },
-              { public: req.body.public },
-              { new: true },
-          ).select('public')
-        : null;
-    if (!submission) return next(new AppError('No submission found with that ID.', 404));
+	if (typeof req.body.public !== 'boolean') {
+		return next(new AppError('Say whether the submission is public.', 400));
+	}
+	const submission = isObjectId(req.params.id)
+		? await Submission.findOneAndUpdate(
+				{ _id: req.params.id, userId: req.user._id },
+				{ public: req.body.public },
+				{ new: true },
+			).select('public')
+		: null;
+	if (!submission) return next(new AppError('No submission found with that ID.', 404));
 
-    res.status(200).json({ status: 'success', data: { submission } });
+	res.status(200).json({ status: 'success', data: { submission } });
 });
 
 const findOwnSubmission = async (id, user, fields = '') => {
-    const submission = isObjectId(id) ? await Submission.findById(id).select(fields) : null;
-    if (!submission || !(isAdmin(user) || submission.userId.equals(user._id))) {
-        throw new AppError('No submission found with that ID.', 404);
-    }
-    return submission;
+	const submission = isObjectId(id) ? await Submission.findById(id).select(fields) : null;
+	if (!submission || !(isAdmin(user) || submission.userId.equals(user._id))) {
+		throw new AppError('No submission found with that ID.', 404);
+	}
+	return submission;
 };
 
 const getSubmission = catchAsync(async (req, res) => {
-    const submission = await findOwnSubmission(req.params.id, req.user);
-    await submission.populate('problemId', 'slug title');
+	const submission = await findOwnSubmission(req.params.id, req.user);
+	await submission.populate('problemId', 'slug title');
 
-    res.status(200).json({ status: 'success', data: { submission } });
+	res.status(200).json({ status: 'success', data: { submission } });
 });
 
 const getSubmissionTest = catchAsync(async (req, res, next) => {
-    const submission = await findOwnSubmission(req.params.id, req.user, 'userId problemId tests +failedOutput +failedLogs');
-    const ordinal = Number(req.params.ordinal);
-    const result = submission.tests.find((test) => test.ordinal === ordinal);
-    if (!result) return next(new AppError('This submission did not run that test.', 404));
+	const submission = await findOwnSubmission(
+		req.params.id,
+		req.user,
+		'userId problemId tests +failedOutput +failedLogs',
+	);
+	const ordinal = Number(req.params.ordinal);
+	const result = submission.tests.find((test) => test.ordinal === ordinal);
+	if (!result) return next(new AppError('This submission did not run that test.', 404));
 
-    const testCase = await TestCase.findOne({ problemId: submission.problemId, ordinal }).select(
-        'isSample +input +expectedOutput',
-    );
-    if (!testCase) return next(new AppError('This test has been removed from the problem.', 404));
-    if (
-        !testCase.isSample &&
-        !isAdmin(req.user) &&
-        (await Contest.exists({ 'problems.problemId': submission.problemId, endsAt: { $gt: new Date() } }))
-    ) {
-        return next(new AppError('Test data is shown once the contest with this problem has ended.', 403));
-    }
+	const testCase = await TestCase.findOne({ problemId: submission.problemId, ordinal }).select(
+		'isSample +input +expectedOutput',
+	);
+	if (!testCase) return next(new AppError('This test has been removed from the problem.', 404));
+	if (
+		!testCase.isSample &&
+		!isAdmin(req.user) &&
+		(await Contest.exists({ 'problems.problemId': submission.problemId, endsAt: { $gt: new Date() } }))
+	) {
+		return next(new AppError('Test data is shown once the contest with this problem has ended.', 403));
+	}
 
-    const failed = result.verdict !== 'ACCEPTED';
-    res.status(200).json({
-        status: 'success',
-        data: {
-            test: {
-                ordinal,
-                verdict: result.verdict,
-                timeMs: result.timeMs,
-                input: testCase.input,
-                expectedOutput: testCase.expectedOutput,
-                ...(failed && { output: submission.failedOutput, logs: submission.failedLogs }),
-            },
-        },
-    });
+	const failed = result.verdict !== 'ACCEPTED';
+	res.status(200).json({
+		status: 'success',
+		data: {
+			test: {
+				ordinal,
+				verdict: result.verdict,
+				timeMs: result.timeMs,
+				input: testCase.input,
+				expectedOutput: testCase.expectedOutput,
+				...(failed && { output: submission.failedOutput, logs: submission.failedLogs }),
+			},
+		},
+	});
 });
 
 const getMySubmissions = catchAsync(async (req, res) => {
-    const filter = { userId: req.user._id };
-    if (isObjectId(req.query.problemId)) filter.problemId = req.query.problemId;
-    if (isObjectId(req.query.contestId)) filter.contestId = req.query.contestId;
-    if (STATUSES.includes(req.query.status)) filter.status = req.query.status;
+	const filter = { userId: req.user._id };
+	if (isObjectId(req.query.problemId)) filter.problemId = req.query.problemId;
+	if (isObjectId(req.query.contestId)) filter.contestId = req.query.contestId;
+	if (STATUSES.includes(req.query.status)) filter.status = req.query.status;
 
-    const features = new APIFeatures(
-        Submission.find(filter)
-            .select('-sourceCode -compileOutput')
-            .populate('problemId', 'slug title'),
-        req.query,
-        {
-            sortable: ['submittedAt', 'status'],
-            defaultSort: '-submittedAt',
-            defaultLimit: 20,
-            maxLimit: 100,
-        },
-    )
-        .sort()
-        .paginate();
+	const features = new APIFeatures(
+		Submission.find(filter).select('-sourceCode -compileOutput').populate('problemId', 'slug title'),
+		req.query,
+		{
+			sortable: ['submittedAt', 'status'],
+			defaultSort: '-submittedAt',
+			defaultLimit: 20,
+			maxLimit: 100,
+		},
+	)
+		.sort()
+		.paginate();
 
-    const [submissions, total] = await Promise.all([
-        features.query,
-        Submission.countDocuments(features.conditions),
-    ]);
+	const [submissions, total] = await Promise.all([features.query, Submission.countDocuments(features.conditions)]);
 
-    res.status(200).json({
-        status: 'success',
-        results: submissions.length,
-        total,
-        page: features.page,
-        data: { submissions },
-    });
+	res.status(200).json({
+		status: 'success',
+		results: submissions.length,
+		total,
+		page: features.page,
+		data: { submissions },
+	});
 });
 
 export { createSubmission, runCode, updateSubmission, getSubmission, getSubmissionTest, getMySubmissions };

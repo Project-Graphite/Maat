@@ -11,7 +11,5 @@ export const classify = (result, expectedOutput) => {
 	if (result.oomKilled) return 'MLE';
 	if (result.truncated) return 'WRONG_ANSWER';
 	if (result.exitCode !== 0) return 'RUNTIME_ERROR';
-	return normalize(result.stdout) === normalize(expectedOutput)
-		? 'ACCEPTED'
-		: 'WRONG_ANSWER';
+	return normalize(result.stdout) === normalize(expectedOutput) ? 'ACCEPTED' : 'WRONG_ANSWER';
 };

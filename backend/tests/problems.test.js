@@ -195,8 +195,17 @@ describe('public problems', () => {
 
 	it('shows a problem with only its sample test cases', async () => {
 		const problem = await createProblem({ slug: 'sum' });
-		await createTestCase(problem._id, { ordinal: 1, isSample: true, input: 'SAMPLE-IN\n', expectedOutput: 'SAMPLE-OUT\n' });
-		await createTestCase(problem._id, { ordinal: 2, input: 'HIDDEN-SECRET-IN\n', expectedOutput: 'HIDDEN-SECRET-OUT\n' });
+		await createTestCase(problem._id, {
+			ordinal: 1,
+			isSample: true,
+			input: 'SAMPLE-IN\n',
+			expectedOutput: 'SAMPLE-OUT\n',
+		});
+		await createTestCase(problem._id, {
+			ordinal: 2,
+			input: 'HIDDEN-SECRET-IN\n',
+			expectedOutput: 'HIDDEN-SECRET-OUT\n',
+		});
 
 		const res = await request(app).get('/api/v1/problems/sum');
 		expect(res.status).toBe(200);
@@ -333,7 +342,9 @@ describe('topics', () => {
 		const contest = await createContest(problem._id, { startsIn: -2 * HOUR, endsIn: -HOUR });
 
 		expect((await request(app).get('/api/v1/problems/over')).body.data.problem.topics).toEqual(['greedy']);
-		expect((await request(app).get(`/api/v1/contests/${contest.id}`)).body.data.contest.problems[0].topics).toEqual(['greedy']);
+		expect((await request(app).get(`/api/v1/contests/${contest.id}`)).body.data.contest.problems[0].topics).toEqual(
+			['greedy'],
+		);
 		expect(titles(await request(app).get('/api/v1/problems?topic=greedy'))).toEqual(['Over']);
 	});
 });
@@ -347,7 +358,13 @@ describe('problem status', () => {
 		const tried = await createProblem({ title: 'Tried one' });
 		await createProblem({ title: 'Untouched' });
 		const submit = (problem, status) =>
-			Submission.create({ userId: user._id, problemId: problem._id, language: 'python3', sourceCode: 'x', status });
+			Submission.create({
+				userId: user._id,
+				problemId: problem._id,
+				language: 'python3',
+				sourceCode: 'x',
+				status,
+			});
 		await submit(solved, 'WRONG_ANSWER');
 		await submit(solved, 'ACCEPTED');
 		await submit(tried, 'TLE');
@@ -368,12 +385,25 @@ describe('problem status', () => {
 		const { agent, user } = await createUser();
 		const problem = await createProblem();
 		const contest = await createContest(problem._id);
-		await Submission.create({ userId: user._id, problemId: problem._id, language: 'python3', sourceCode: 'x', status: 'ACCEPTED' });
+		await Submission.create({
+			userId: user._id,
+			problemId: problem._id,
+			language: 'python3',
+			sourceCode: 'x',
+			status: 'ACCEPTED',
+		});
 
 		const before = await agent.get(`/api/v1/contests/${contest.id}`);
 		expect(before.body.data.contest.problems[0].status).toBeNull();
 
-		await Submission.create({ userId: user._id, problemId: problem._id, contestId: contest._id, language: 'python3', sourceCode: 'x', status: 'ACCEPTED' });
+		await Submission.create({
+			userId: user._id,
+			problemId: problem._id,
+			contestId: contest._id,
+			language: 'python3',
+			sourceCode: 'x',
+			status: 'ACCEPTED',
+		});
 		const after = await agent.get(`/api/v1/contests/${contest.id}`);
 		expect(after.body.data.contest.problems[0].status).toBe('solved');
 	});

@@ -76,7 +76,9 @@ describe('rate limits', () => {
 	it('does not count successful logins', async () => {
 		const { email } = await createUser();
 		for (let i = 0; i < 12; i++) {
-			expect((await request(app).post('/api/v1/auth/login').send({ email, password: PASSWORD })).status).toBe(200);
+			expect((await request(app).post('/api/v1/auth/login').send({ email, password: PASSWORD })).status).toBe(
+				200,
+			);
 		}
 	});
 

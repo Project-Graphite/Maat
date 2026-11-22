@@ -1,4 +1,7 @@
-import 'dotenv/config';
+import './env.js';
+import { writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import mongoose from 'mongoose';
 import { Worker } from 'bullmq';
 
@@ -15,10 +18,11 @@ process.on('uncaughtException', (err) => {
 });
 
 import { failSubmission, judgeSubmission, runSamples } from './judge.js';
-import { measureBaseline, removeStaleSandboxes } from './sandbox.js';
-import { createRedis } from './services/redis.js';
+import { checkImages, measureBaseline, removeStaleSandboxes } from './sandbox.js';
+import { createRedis, redis } from './services/redis.js';
 
 const JUDGE_QUEUE = 'judge';
+const HEALTH_FILE = path.join(os.tmpdir(), 'worker-healthy');
 
 await mongoose.connect(process.env.DATABASE_LOCAL);
 console.log('DB connection successful!');
@@ -26,6 +30,7 @@ console.log('DB connection successful!');
 const removed = await removeStaleSandboxes();
 if (removed) console.log(`Removed ${removed} leftover sandbox container(s)`);
 
+await checkImages();
 const baseline = await measureBaseline();
 console.log(`Sandbox startup overhead: ${baseline}ms`);
 
@@ -52,6 +57,13 @@ worker.on('failed', async (job, err) => {
 worker.on('error', (err) => console.log('Worker error:', err.message));
 
 console.log(`Worker is judging up to ${concurrency} submissions at once`);
+
+const reportHealth = async () => {
+	if (!worker.isRunning() || redis.status !== 'ready' || mongoose.connection.readyState !== 1) return;
+	await writeFile(HEALTH_FILE, '').catch((err) => console.log('Could not report health:', err.message));
+};
+await reportHealth();
+setInterval(reportHealth, 10_000);
 
 const shutdown = async () => {
 	await worker.close();

@@ -28,7 +28,12 @@ export const createUser = async ({ role = 'user' } = {}) => {
 
 	const agent = request.agent(app);
 	const res = await agent.post('/api/v1/auth/login').send({ email: body.email, password: PASSWORD });
-	return { agent, user: res.body.data.user, email: body.email, token: res.headers['set-cookie'][0].match(/jwt=([^;]+)/)[1] };
+	return {
+		agent,
+		user: res.body.data.user,
+		email: body.email,
+		token: res.headers['set-cookie'][0].match(/jwt=([^;]+)/)[1],
+	};
 };
 
 export const createAdmin = () => createUser({ role: 'admin' });
@@ -60,4 +65,3 @@ export const createContest = (problemId, { startsIn = -MINUTE, endsIn = 60 * MIN
 		endsAt: new Date(Date.now() + endsIn),
 		problems: [{ problemId, label: 'A' }],
 	});
-

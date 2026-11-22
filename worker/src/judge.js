@@ -15,8 +15,11 @@ const FINAL = new Set(['ACCEPTED', 'WRONG_ANSWER', 'TLE', 'MLE', 'RUNTIME_ERROR'
 const VERDICT_CHANNEL = 'verdicts';
 
 const RUN_OUTPUT_CHARS = 16 * 1024;
-const clip = (text) => (text.length > RUN_OUTPUT_CHARS ? `${text.slice(0, RUN_OUTPUT_CHARS)}
-…` : text);
+const clip = (text) =>
+	text.length > RUN_OUTPUT_CHARS
+		? `${text.slice(0, RUN_OUTPUT_CHARS)}
+…`
+		: text;
 
 const withJobDir = async (id, language, sourceCode, work) => {
 	const jobDir = path.join(JOBS_DIR, id);
@@ -78,9 +81,7 @@ export const judgeSubmission = async (submissionId) => {
 
 	const [problem, testCases] = await Promise.all([
 		Problem.findById(submission.problemId),
-		TestCase.find({ problemId: submission.problemId })
-			.select('+input +expectedOutput')
-			.sort('ordinal'),
+		TestCase.find({ problemId: submission.problemId }).select('+input +expectedOutput').sort('ordinal'),
 	]);
 	if (!problem || !testCases.length) {
 		throw new Error(`Problem ${submission.problemId} is missing or has no test cases`);

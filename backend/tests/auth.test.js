@@ -25,7 +25,9 @@ describe('signup', () => {
 	});
 
 	it('ignores a role sent by the client', async () => {
-		const res = await request(app).post(`${auth}/signup`).send(signupBody({ role: 'admin' }));
+		const res = await request(app)
+			.post(`${auth}/signup`)
+			.send(signupBody({ role: 'admin' }));
 		expect(res.status).toBe(201);
 		expect(res.body.data.user.role).toBe('user');
 	});
@@ -54,7 +56,9 @@ describe('signup', () => {
 	it('rejects a duplicate email', async () => {
 		const body = signupBody();
 		await request(app).post(`${auth}/signup`).send(body);
-		const res = await request(app).post(`${auth}/signup`).send({ ...body, name: 'Someone Else' });
+		const res = await request(app)
+			.post(`${auth}/signup`)
+			.send({ ...body, name: 'Someone Else' });
 		expect(res.status).toBe(400);
 		expect(await User.countDocuments({ email: body.email })).toBe(1);
 	});
@@ -70,17 +74,13 @@ describe('login', () => {
 
 	it('rejects a wrong password', async () => {
 		const { email } = await createUser();
-		const res = await request(app)
-			.post(`${auth}/login`)
-			.send({ email, password: 'wrong-password' });
+		const res = await request(app).post(`${auth}/login`).send({ email, password: 'wrong-password' });
 		expect(res.status).toBe(401);
 		expect(res.headers['set-cookie']).toBeUndefined();
 	});
 
 	it('gives the same answer for an unknown email', async () => {
-		const res = await request(app)
-			.post(`${auth}/login`)
-			.send({ email: 'nobody@test.com', password: PASSWORD });
+		const res = await request(app).post(`${auth}/login`).send({ email: 'nobody@test.com', password: PASSWORD });
 		expect(res.status).toBe(401);
 		expect(res.body.message).toBe('Incorrect email or password.');
 	});
@@ -106,26 +106,20 @@ describe('who am I', () => {
 
 	it('works with a Bearer token', async () => {
 		const { token, email } = await createUser();
-		const res = await request(app)
-			.get('/api/v1/users/me')
-			.set('Authorization', `Bearer ${token}`);
+		const res = await request(app).get('/api/v1/users/me').set('Authorization', `Bearer ${token}`);
 		expect(res.status).toBe(200);
 		expect(res.body.data.user.email).toBe(email);
 	});
 
 	it('rejects a forged token', async () => {
-		const res = await request(app)
-			.get('/api/v1/users/me')
-			.set('Authorization', 'Bearer not.a.token');
+		const res = await request(app).get('/api/v1/users/me').set('Authorization', 'Bearer not.a.token');
 		expect(res.status).toBe(401);
 	});
 
 	it('rejects a token for a user who no longer exists', async () => {
 		const { token, user } = await createUser();
 		await User.deleteOne({ _id: user._id });
-		const res = await request(app)
-			.get('/api/v1/users/me')
-			.set('Authorization', `Bearer ${token}`);
+		const res = await request(app).get('/api/v1/users/me').set('Authorization', `Bearer ${token}`);
 		expect(res.status).toBe(401);
 	});
 });
@@ -141,9 +135,7 @@ describe('logout', () => {
 		await letTokenAge();
 		expect((await agent.post(`${auth}/logout`)).status).toBe(200);
 
-		const res = await request(app)
-			.get('/api/v1/users/me')
-			.set('Authorization', `Bearer ${token}`);
+		const res = await request(app).get('/api/v1/users/me').set('Authorization', `Bearer ${token}`);
 		expect(res.status).toBe(401);
 	});
 });
@@ -161,9 +153,7 @@ describe('password change', () => {
 		});
 		expect(res.status).toBe(200);
 
-		const old = await request(app)
-			.get('/api/v1/users/me')
-			.set('Authorization', `Bearer ${token}`);
+		const old = await request(app).get('/api/v1/users/me').set('Authorization', `Bearer ${token}`);
 		expect(old.status).toBe(401);
 		const login = await request(app).post(`${auth}/login`).send({ email, password: newPassword });
 		expect(login.status).toBe(200);
@@ -184,12 +174,16 @@ describe('error messages', () => {
 	it('names a taken email plainly', async () => {
 		const body = signupBody();
 		await request(app).post('/api/v1/auth/signup').send(body);
-		const res = await request(app).post('/api/v1/auth/signup').send({ ...body, name: 'Someone Else' });
+		const res = await request(app)
+			.post('/api/v1/auth/signup')
+			.send({ ...body, name: 'Someone Else' });
 		expect(res.body.message).toBe('An account with this email already exists.');
 	});
 
 	it('explains a short password', async () => {
-		const res = await request(app).post('/api/v1/auth/signup').send(signupBody({ password: 'short', passwordConfirm: 'short' }));
+		const res = await request(app)
+			.post('/api/v1/auth/signup')
+			.send(signupBody({ password: 'short', passwordConfirm: 'short' }));
 		expect(res.body.message).toBe('Your password must be at least 8 characters.');
 	});
 });

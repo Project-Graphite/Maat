@@ -63,6 +63,56 @@ describe('seed', () => {
 		expect(tests[4].expectedOutput).toBe('664579\n');
 	});
 
+	it.each([
+		['user', 'admin@test.com'],
+		['admin', 'admin@test.com'],
+		['user', 'Admin@Test.com'],
+	])('never promotes an existing %s, seeding as %s', async (role, seedEmail) => {
+		await User.create({
+			name: 'Early bird',
+			email: 'admin@test.com',
+			password: 'attacker-password',
+			passwordConfirm: 'attacker-password',
+			role,
+		});
+		process.env.SEED_ADMIN_EMAIL = seedEmail;
+		process.env.SEED_ADMIN_PASSWORD = 'password123';
+
+		await expect(seed()).rejects.toThrow('was not promoted');
+
+		expect((await User.findOne({ email: 'admin@test.com' })).role).toBe(role);
+		expect(await User.countDocuments()).toBe(1);
+		expect(await Problem.countDocuments()).toBe(0);
+	});
+
+	it('still makes the admin when someone took the name Administrator', async () => {
+		await User.create({
+			name: 'Administrator',
+			email: 'squatter@test.com',
+			password: 'attacker-password',
+			passwordConfirm: 'attacker-password',
+		});
+		process.env.SEED_ADMIN_EMAIL = 'admin@test.com';
+		process.env.SEED_ADMIN_PASSWORD = 'password123';
+
+		await seed();
+
+		expect((await User.findOne({ email: 'admin@test.com' })).role).toBe('superadmin');
+		expect((await User.findOne({ email: 'squatter@test.com' })).role).toBe('user');
+	});
+
+	it('leaves the super admin password alone when run again', async () => {
+		process.env.SEED_ADMIN_EMAIL = 'admin@test.com';
+		process.env.SEED_ADMIN_PASSWORD = 'password123';
+		await seed();
+		const before = (await User.findOne({ email: 'admin@test.com' }).select('+password')).password;
+
+		process.env.SEED_ADMIN_PASSWORD = 'another-password';
+		await seed();
+
+		expect((await User.findOne({ email: 'admin@test.com' }).select('+password')).password).toBe(before);
+	});
+
 	it('makes no admin without credentials', async () => {
 		await seed();
 		expect(await User.countDocuments()).toBe(0);

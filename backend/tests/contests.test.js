@@ -9,8 +9,7 @@ import { publishEndedContests } from '../services/contestPublishing.js';
 import { redis } from '../services/redis.js';
 import { createAdmin, createContest, createProblem, createTestCase, createUser } from './helpers.js';
 
-const draft = (problemId) =>
-	Contest.create({ title: 'Draft', problems: [{ problemId, label: 'A' }] });
+const draft = (problemId) => Contest.create({ title: 'Draft', problems: [{ problemId, label: 'A' }] });
 
 describe('unscheduled contests', () => {
 	it('can be saved without a start and end time', async () => {
@@ -29,9 +28,11 @@ describe('unscheduled contests', () => {
 		const { agent } = await createAdmin();
 		const problem = await createProblem();
 
-		const res = await agent
-			.post('/api/v1/contests')
-			.send({ title: 'Half', startsAt: new Date().toISOString(), problems: [{ problemId: problem.id, label: 'A' }] });
+		const res = await agent.post('/api/v1/contests').send({
+			title: 'Half',
+			startsAt: new Date().toISOString(),
+			problems: [{ problemId: problem.id, label: 'A' }],
+		});
 
 		expect(res.status).toBe(400);
 	});
@@ -86,7 +87,13 @@ describe('deleting a contest', () => {
 		const problem = await createProblem({ visible: false });
 		await createTestCase(problem._id);
 		const contest = await createContest(problem._id);
-		await Submission.create({ userId: user._id, problemId: problem._id, contestId: contest._id, language: 'python3', sourceCode: 'x' });
+		await Submission.create({
+			userId: user._id,
+			problemId: problem._id,
+			contestId: contest._id,
+			language: 'python3',
+			sourceCode: 'x',
+		});
 		redis.zrange.mockResolvedValueOnce([user._id.toString()]);
 		return { agent, problem, contest, user };
 	};

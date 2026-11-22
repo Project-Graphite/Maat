@@ -48,7 +48,13 @@ describe('purging deactivated accounts', () => {
 		const problem = await createProblem();
 		const contestId = '6a0000000000000000000001';
 		const old = await deactivate(31);
-		await Submission.create({ userId: old._id, problemId: problem._id, contestId, language: 'python3', sourceCode: 'print(1)' });
+		await Submission.create({
+			userId: old._id,
+			problemId: problem._id,
+			contestId,
+			language: 'python3',
+			sourceCode: 'print(1)',
+		});
 
 		expect(await purgeDeactivatedAccounts()).toBe(1);
 		expect(await User.findById(old._id)).toBeNull();

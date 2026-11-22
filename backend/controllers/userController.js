@@ -54,7 +54,9 @@ const getMyStats = catchAsync(async (req, res) => {
 	]);
 
 	// Only problems in the problem set count towards progress
-	const attempted = await Problem.find({ _id: { $in: attempts.map((a) => a._id) }, visible: true }).select('difficulty');
+	const attempted = await Problem.find({ _id: { $in: attempts.map((a) => a._id) }, visible: true }).select(
+		'difficulty',
+	);
 	const solvedIds = new Set(attempts.filter((a) => a.solved).map((a) => String(a._id)));
 	const progress = Object.fromEntries(DIFFICULTIES.map((level) => [level, { solved: 0, total: 0 }]));
 	for (const { _id, count } of problemCounts) progress[_id].total = count;
@@ -101,11 +103,7 @@ const uploadAvatar = catchAsync(async (req, res, next) => {
 	}
 
 	const key = await putAvatar(req.user.id, req.body);
-	const user = await User.findByIdAndUpdate(
-		req.user._id,
-		{ photo: key },
-		{ new: true },
-	);
+	const user = await User.findByIdAndUpdate(req.user._id, { photo: key }, { new: true });
 	if (req.user.photo) await removeAvatar(req.user.photo);
 
 	res.status(200).json({ status: 'success', data: { user } });
@@ -119,27 +117,20 @@ const deleteAvatar = catchAsync(async (req, res) => {
 });
 
 const getAvatar = catchAsync(async (req, res, next) => {
-	const user = isObjectId(req.params.id)
-		? await User.findById(req.params.id).select('photo')
-		: null;
-	if (!user || !user.photo)
-		return next(new AppError('No avatar found.', 404));
+	const user = isObjectId(req.params.id) ? await User.findById(req.params.id).select('photo') : null;
+	if (!user || !user.photo) return next(new AppError('No avatar found.', 404));
 
 	await sendAvatar(user.photo, res);
 });
 
 const getAllUsers = catchAsync(async (req, res) => {
-	const features = new APIFeatures(
-		User.find().select('name email role photo'),
-		req.query,
-		{
-			searchable: 'name',
-			sortable: ['name', 'role'],
-			defaultSort: 'name',
-			defaultLimit: 20,
-			maxLimit: 100,
-		},
-	)
+	const features = new APIFeatures(User.find().select('name email role photo'), req.query, {
+		searchable: 'name',
+		sortable: ['name', 'role'],
+		defaultSort: 'name',
+		defaultLimit: 20,
+		maxLimit: 100,
+	})
 		.search()
 		.sort()
 		.paginate();
@@ -174,14 +165,4 @@ const deleteUser = catchAsync(async (req, res) => {
 	res.status(204).send();
 });
 
-export {
-	getMe,
-	getMyStats,
-	updateMe,
-	uploadAvatar,
-	deleteAvatar,
-	getAvatar,
-	getAllUsers,
-	updateUserRole,
-	deleteUser,
-};
+export { getMe, getMyStats, updateMe, uploadAvatar, deleteAvatar, getAvatar, getAllUsers, updateUserRole, deleteUser };

@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import '../../src/env.js';
 import { randomBytes } from 'node:crypto';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { applyVerdict, minutesSinceStart } from '../../src/services/leaderboard.js';
