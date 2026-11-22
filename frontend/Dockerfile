@@ -9,7 +9,7 @@ ARG VITE_CONTACT_EMAIL
 RUN npm run build
 RUN find dist/assets -type f \( -name '*.js' -o -name '*.css' -o -name '*.wasm' -o -name '*.svg' \) -exec gzip -9 -k {} +
 
-FROM nginxinc/nginx-unprivileged:1.30-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY security-headers.conf /etc/nginx/security-headers.conf
 COPY --from=build /app/dist /usr/share/nginx/html
